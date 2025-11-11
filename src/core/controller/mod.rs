@@ -11,7 +11,8 @@ pub mod constantes{
     pub const ANNOTATION_STORE_PORTS_KEY        : &str = "store.ports";
     pub const KUBESLEEPER_SERVER_SELECTOR_KEY   : &str = "app";
     pub const KUBESLEEPER_SERVER_SELECTOR_VALUE : &str = "kubesleeper";
-    pub const SERVER_SELECTOR                   : (&str, &str) = ("app", "kubesleeper");
+    pub const KUBESLEEPER_SERVER_PORT           : i32 = 8080;
+    // pub const SERVER_SELECTOR                   : (&str, &str) = ("app", "kubesleeper");
 }
 
 pub mod error {

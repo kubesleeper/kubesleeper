@@ -11,8 +11,17 @@ pub enum StateKind {
 impl fmt::Display for StateKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            StateKind::Asleep => write!(f, "{}", format!("{:?}",StateKind::Asleep).to_lowercase()),
-            StateKind::Awake => write!(f, "{}", format!("{:?}",StateKind::Awake).to_lowercase()),
+            StateKind::Asleep => write!(f, "{}", format!("{:?}", StateKind::Asleep).to_lowercase()),
+            StateKind::Awake => write!(f, "{}", format!("{:?}", StateKind::Awake).to_lowercase()),
+        }
+    }
+}
+
+impl StateKind {
+    pub fn display_option(state_kind: &Option<StateKind>) -> String {
+        match state_kind {
+            Some(e) => e.to_string(),
+            None => "none".to_string(),
         }
     }
 }

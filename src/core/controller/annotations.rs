@@ -6,22 +6,23 @@ use crate::core::controller::constantes::*;
 pub struct Annotations(HashMap<String, String>);
 
 impl Annotations {
-    pub fn to_hashmap(&self) -> HashMap<String, String> {
-        self.0.clone()
-    }
-    pub fn get(&self, key: &str) -> Option<&String> {
+    // pub fn to_hashmap(&self) -> HashMap<String, String> {
+    //     self.0.clone()
+    // }
+    pub fn get(&self, key: &str) -> Option<&str> {
         self.0
             .get(&(KUBESLEEPER_ANNOTATION_PREFIX.to_string() + key))
+            .map(String::as_str)
     }
 
-    pub fn set(&mut self, key: &str, value: String) {
-        self.0
-            .insert(KUBESLEEPER_ANNOTATION_PREFIX.to_string() + key, value);
-    }
+    // pub fn set(&mut self, key: &str, value: String) {
+    //     self.0
+    //         .insert(KUBESLEEPER_ANNOTATION_PREFIX.to_string() + key, value);
+    // }
 
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
+    // pub fn is_empty(&self) -> bool {
+    //     self.0.is_empty()
+    // }
 }
 
 impl From<&BTreeMap<String, String>> for Annotations {

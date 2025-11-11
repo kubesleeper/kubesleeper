@@ -1,5 +1,5 @@
+use crate::core::ingress::IngressType;
 use crate::core::ingress::error::IngressError;
-use crate::core::ingress::{IngressType};
 
 use k8s_openapi::api::core::v1::Pod;
 use kube::api::ListParams;

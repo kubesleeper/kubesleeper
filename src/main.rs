@@ -4,10 +4,8 @@ mod core;
 use clap::{Parser, Subcommand};
 
 use crate::core::controller::service::Service;
-use crate::core::{
-    controller::deploy::Deploy, ingress::IngressType, server,
-};
 use crate::core::state::state::create_schedule;
+use crate::core::{controller::deploy::Deploy, ingress::IngressType, server};
 
 #[derive(Parser)]
 #[command(name = "kubesleeper", version)]
@@ -44,22 +42,6 @@ enum TestCommands {
     RedirectServiceToOrigin { namespace: String, name: String },
 }
 
-
-
-read k8s > Deploy
-
-Deploy.replicas = 0
-Deploy.replicas = 0
-Deploy.replicas = 0
-Deploy.annotations = 0
-
-Deploy.patch()
-
-
-
-
-
-
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
@@ -74,7 +56,7 @@ async fn main() {
             let deploys = crate::core::controller::deploy::Deploy::get_all("ks")
                 .await
                 .unwrap();
-            
+
             deploys.iter().for_each(|deploy| {
                 println!("{deploy}");
             });
@@ -87,7 +69,7 @@ async fn main() {
                 println!("{service}");
             });
 
-            println!("\n\n━━━ Metrics\n");
+            println!("━━━ Metrics\n");
             let metrics_pods = crate::core::ingress::traefik::Traefik::get_ingress_pods()
                 .await
                 .unwrap();
@@ -114,20 +96,20 @@ async fn main() {
                 println!("Set asleep deploy '{}' from '{}'", name, namespace);
 
                 /*
-if let Some(&deploy) = Deploy::get_all("ks")
-    .await
-    .unwrap()
-    .iter()
-    .find(|x| x.name == name)
-    .as_mut()
-    .iter_mut()
-{
-    deploy.sleep().await.unwrap(); <<<< 
-} else {
-    eprintln!("Error : Deployment not found");
-}
-                 
-                 */
+                if let Some(&deploy) = Deploy::get_all("ks")
+                    .await
+                    .unwrap()
+                    .iter()
+                    .find(|x| x.name == name)
+                    .as_mut()
+                    .iter_mut()
+                {
+                    deploy.sleep().await.unwrap(); <<<<
+                } else {
+                    eprintln!("Error : Deployment not found");
+                }
+
+                                 */
                 if let Some(deploy) = Deploy::get_all("ks")
                     .await
                     .unwrap()

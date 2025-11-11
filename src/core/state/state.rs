@@ -18,7 +18,7 @@ lazy_static! {
     pub static ref STATE: Mutex<State> = Mutex::new(State::default());
 }
 
-pub const ANNOTATION_STORE_STATE_KEY: &str = "store.state";
+//pub const ANNOTATION_STORE_STATE_KEY: &str = "store.state";
 
 const MAX_SLEEPNESS_DURATION: Duration = Duration::new(15, 0);
 /// TODO : dynamic from config
@@ -101,25 +101,22 @@ impl State {
                 Deploy::change_all_state(StateKind::Asleep).await?;
                 Service::change_all_state(StateKind::Asleep).await?;
                 Ok(())
-            },
+            }
             Some(StateKind::Awake) => {
                 Deploy::change_all_state(StateKind::Awake).await?;
                 Service::change_all_state(StateKind::Awake).await?;
                 Ok(())
-            },
+            }
             None => Ok(()),
         }
-
     }
 
     pub async fn update_from_metrics(
         new_metrics: HashMap<String, HashMap<String, u64>>,
     ) -> Result<(), StateError> {
-
         // Update notification
-        State::update_from_notification(
-            State::create_notification_from_metrics(&new_metrics)?
-        ).await?;
+        State::update_from_notification(State::create_notification_from_metrics(&new_metrics)?)
+            .await?;
 
         // Update metrics
         STATE

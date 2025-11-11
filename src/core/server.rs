@@ -8,9 +8,9 @@ use rocket::{
 
 use std::path::{Path, PathBuf};
 
-use crate::core::state::state::State;
-use crate::core::state::notification::NotificationKind;
 use crate::core::state::notification::Notification;
+use crate::core::state::notification::NotificationKind;
+use crate::core::state::state::State;
 
 const KUBESLEEPER_REST_PATH_PREFIX: &str = "/kubesleeper";
 
