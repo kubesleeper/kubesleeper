@@ -4,7 +4,7 @@ use kube::runtime::reflector::Lookup;
 use kube::{Api, Client, ResourceExt};
 
 use crate::core::controller::constantes::*;
-use crate::core::controller::error::ControllerError;
+use crate::core::controller::error;
 use crate::core::state::state_kind::StateKind;
 use std::collections::BTreeMap;
 use std::fmt;
@@ -13,29 +13,37 @@ pub struct Deploy {
     pub name: String,
     pub namespace: String,
     pub replicas: i32,
-
     pub store_state: Option<StateKind>,
     pub store_replicas: Option<i32>,
 }
 impl TryFrom<&Deployment> for Deploy {
-    type Error = ControllerError;
+    type Error = error::Controller;
 
     fn try_from(deploy: &Deployment) -> std::result::Result<Self, Self::Error> {
         // --- explicit data
         let name = deploy
             .name()
-            .ok_or(ControllerError::ResourceDataError(
-                "Missing 'name' field".to_string(),
-            ))?
+            .ok_or(
+                error::ParseResource::MissingValue{
+                    id: "?/?".to_string(),
+                    resource: "name".to_string()
+                }
+            )?
             .to_string();
+        
         let namespace = ResourceExt::namespace(deploy).ok_or(
-            ControllerError::ResourceDataError("Missing 'namespace' field".to_string()),
+            error::ParseResource::MissingValue{
+                id: format!("{name}"),
+                resource: "namespace".to_string()   
+            }
         )?;
         let deploy_id = format!("{namespace}/{name}");
+        
         let replicas = deploy.spec.as_ref().and_then(|s| s.replicas).ok_or(
-            ControllerError::ResourceDataError(
-                "Can't parse Deployment {deploy_id} : Missing '.spec' field".to_string(),
-            ),
+            error::ParseResource::MissingValue{
+                id: format!("{deploy_id}"),
+                resource: ".spec".to_string()
+            }
         )?;
 
         // --- store annotation
@@ -48,10 +56,11 @@ impl TryFrom<&Deployment> for Deploy {
             .get(ANNOTATION_STORE_STATE_KEY)
             .map(|raw_store_state| {
                 StateKind::try_from(raw_store_state).map_err(|err| {
-                    ControllerError::ResourceDataError(format!(
-                        "Can't parse Deployment {deploy_id} : Can't parse annotation '{}{}' : {}",
-                        KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY, err
-                    ))
+                    error::ParseResource::Failed{
+                        id: format!("{deploy_id}"),
+                        resource: format!(".annotations.{}{}", KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY),
+                        error: format!("{err}")
+                    }
                 })
             })
             .transpose()?;
@@ -61,10 +70,11 @@ impl TryFrom<&Deployment> for Deploy {
             .get(ANNOTATION_STORE_REPLICAS_KEY)
             .map(|raw_store_replicas| {
                 raw_store_replicas.parse::<i32>().map_err(|err| {
-                    ControllerError::ResourceDataError(format!(
-                        "Can't parse Deployment {deploy_id} : Can't parse annotation '{}{}' : {}",
-                        KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY, err
-                    ))
+                    error::ParseResource::Failed{
+                        id: format!("{deploy_id}"),
+                        resource: format!(".annotations.{}{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY),
+                        error: format!("{err}")
+                    }
                 })
             })
             .transpose()?;
@@ -78,14 +88,14 @@ impl TryFrom<&Deployment> for Deploy {
     }
 }
 impl Deploy {
-    async fn get_k8s_api(namespace: &str) -> Result<Api<Deployment>, ControllerError> {
+    async fn get_k8s_api(namespace: &str) -> Result<Api<Deployment>, error::Controller> {
         let client = Client::try_default().await?;
 
         let deployments: Api<Deployment> = Api::namespaced(client, namespace);
         return Ok(deployments);
     }
 
-    async fn patch(&self) -> Result<(), ControllerError> {
+    async fn patch(&self) -> Result<(), error::Controller> {
         let patch = serde_json::json!({
             "spec" : {
                 "replicas": self.replicas
@@ -112,7 +122,7 @@ impl Deploy {
 }
 
 impl Deploy {
-    pub async fn wake(&mut self) -> Result<(), ControllerError> {
+    pub async fn wake(&mut self) -> Result<(), error::Controller> {
         if self.store_state == Some(StateKind::Awake) {
             println!(
                 "State already marked as '{}', skipping wake action",
@@ -123,15 +133,17 @@ impl Deploy {
 
         self.replicas = self
             .store_replicas
-            .ok_or(ControllerError::ResourceDataError(format!(
-                "Missing required annotations {}{} : cannot set awake",
-                KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_REPLICAS_KEY,
-            )))?;
+            .ok_or(
+                error::ParseResource::MissingValue {
+                    id: format!("{}/{}",self.name,self.namespace),
+                    resource: format!("{}{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_REPLICAS_KEY)
+                }
+            )?;
         self.store_state = Some(StateKind::Awake);
         self.patch().await
     }
 
-    pub async fn sleep(&mut self) -> Result<(), ControllerError> {
+    pub async fn sleep(&mut self) -> Result<(), error::Controller> {
         if self.store_state == Some(StateKind::Asleep) {
             println!(
                 "State already marked as '{}', skipping sleep action",
@@ -146,7 +158,7 @@ impl Deploy {
         self.patch().await
     }
 
-    pub async fn get_all(namespace: &str) -> Result<Vec<Deploy>, ControllerError> {
+    pub async fn get_all(namespace: &str) -> Result<Vec<Deploy>, error::Controller> {
         Deploy::get_k8s_api(namespace)
             .await?
             .list(&ListParams::default())
@@ -156,7 +168,7 @@ impl Deploy {
             .collect()
     }
 
-    pub async fn change_all_state(state: StateKind) -> Result<(), ControllerError> {
+    pub async fn change_all_state(state: StateKind) -> Result<(), error::Controller> {
         let deploys = Deploy::get_all("ks").await?;
 
         for mut deploy in deploys {

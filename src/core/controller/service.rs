@@ -3,8 +3,7 @@ use crate::core::controller::constantes::*;
 
 use crate::core::state::state_kind::StateKind;
 
-use super::error::ControllerError;
-use crate::core::controller::error::ControllerError::SerdeJsonError;
+use super::error;
 use k8s_openapi::api::core::v1::Service as K8sService;
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use kube::api::{ListParams, Patch, PatchParams};
@@ -54,14 +53,14 @@ pub struct Service {
 }
 
 impl Service {
-    async fn get_k8s_api(namespace: &str) -> Result<Api<K8sService>, ControllerError> {
+    async fn get_k8s_api(namespace: &str) -> Result<Api<K8sService>, error::Controller> {
         let client = Client::try_default().await?;
 
         let services: Api<K8sService> = Api::namespaced(client, namespace);
         Ok(services)
     }
 
-    async fn patch(&self) -> Result<(), ControllerError> {
+    async fn patch(&self) -> Result<(), error::Controller> {
         let store_selector = serde_json::to_string(
             self.store_selector
                 .as_ref()
@@ -72,6 +71,7 @@ impl Service {
                 .as_ref()
                 .expect("Logically store_ports must be a Some at this stage"),
         )?;
+        
         let patch = serde_json::json!({
             "spec" : {
                 "selector": self.selector,
@@ -98,7 +98,7 @@ impl Service {
 }
 
 impl Service {
-    pub async fn wake(&mut self) -> Result<(), ControllerError> {
+    pub async fn wake(&mut self) -> Result<(), error::Controller> {
         if self.store_state == Some(StateKind::Asleep) {
             println!(
                 "State already marked as '{}', skipping wake action",
@@ -111,23 +111,28 @@ impl Service {
         self.selector = self
             .store_selector
             .clone()
-            .ok_or(ControllerError::ResourceDataError(format!(
-                "Missing required annotations {}{} : cannot set awake",
-                KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_SELECTOR_KEY,
-            )))?;
+            .ok_or(
+                error::ParseResource::MissingValue {
+                    id: format!("{}/{}",self.name,self.namespace),
+                    resource: format!(".annotations.{}/{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_SELECTOR_KEY)
+                }
+            )?;
+
         self.ports = self
             .store_ports
             .clone()
-            .ok_or(ControllerError::ResourceDataError(format!(
-                "Missing required annotations {}{} : cannot set awake",
-                KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_PORTS_KEY,
-            )))?;
+            .ok_or(
+                error::ParseResource::MissingValue {
+                    id: format!("{}/{}",self.name,self.namespace),
+                    resource: format!(".annotations.{}/{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_PORTS_KEY)
+                }
+            )?;
 
         self.store_state = Some(StateKind::Awake);
         self.patch().await
     }
 
-    pub async fn sleep(&mut self) -> Result<(), ControllerError> {
+    pub async fn sleep(&mut self) -> Result<(), error::Controller> {
         if self.store_state == Some(StateKind::Asleep) {
             println!(
                 "State already marked as '{}', skipping sleep action",
@@ -155,7 +160,7 @@ impl Service {
         self.patch().await
     }
 
-    pub async fn get_all(namespace: &str) -> Result<Vec<Service>, ControllerError> {
+    pub async fn get_all(namespace: &str) -> Result<Vec<Service>, error::Controller> {
         Service::get_k8s_api(namespace)
             .await?
             .list(&ListParams::default())
@@ -165,7 +170,7 @@ impl Service {
             .collect()
     }
 
-    pub async fn change_all_state(state: StateKind) -> Result<(), ControllerError> {
+    pub async fn change_all_state(state: StateKind) -> Result<(), error::Controller> {
         let services = Service::get_all("ks").await?;
 
         for mut service in services {
@@ -197,28 +202,36 @@ impl fmt::Display for Service {
 }
 
 impl TryFrom<&K8sService> for Service {
-    type Error = ControllerError;
+    type Error = error::Controller;
 
     fn try_from(service: &K8sService) -> std::result::Result<Self, Self::Error> {
         // --- explicit data
         let name = service
             .name()
-            .ok_or_else(|| ControllerError::ResourceDataError("Missing 'name' field".to_string()))?
+            .ok_or_else(|| error::ParseResource::MissingValue{
+                id: format!("?/?"),
+                resource: format!("name")
+                
+            })?
             .to_string();
         let namespace = ResourceExt::namespace(service).ok_or(
-            ControllerError::ResourceDataError("Missing 'namespace' field".to_string()),
+            error::ParseResource::MissingValue{
+                id: format!("{name}/?"),
+                resource: format!("namespace")
+            }
         )?;
 
-        let service_id = format!("{name} ({namespace})");
+        let service_id = format!("{name}/{namespace}");
 
         let selector: HashMap<String, String> = service
             .spec
             .as_ref()
             .and_then(|s| s.selector.as_ref())
             .ok_or_else(|| {
-                ControllerError::ResourceDataError(
-                    "Can't parse Service {service_id} : Missing 'spec.selector' field".to_string(),
-                )
+                error::ParseResource::MissingValue{
+                    id: format!("{service_id}"),
+                    resource: format!(".spec.selector")
+                }
             })?
             .clone()
             .into_iter()
@@ -229,9 +242,10 @@ impl TryFrom<&K8sService> for Service {
             .as_ref()
             .and_then(|s| s.ports.as_ref())
             .ok_or_else(|| {
-                ControllerError::ResourceDataError(
-                    "Can't parse Service {service_id} : Missing 'spec.ports' field".to_string(),
-                )
+                error::ParseResource::MissingValue{
+                    id: format!("{service_id}"),
+                    resource: format!(".spec.ports")
+                }
             })?
             .clone()
             .into_iter()
@@ -250,10 +264,10 @@ impl TryFrom<&K8sService> for Service {
             .get(ANNOTATION_STORE_STATE_KEY)
             .map(|raw_store_state| {
                 StateKind::try_from(raw_store_state).map_err(|err| {
-                    ControllerError::ResourceDataError(format!(
-                        "Can't parse Service {service_id} : Missing required annotation '{}{}' : {}",
-                        KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY, err
-                    ))
+                    error::ParseResource::MissingValue{
+                        id: format!("{service_id}"),
+                        resource: format!(".annotations.{}{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY)
+                    }
                 })
             })
             .transpose()?;
@@ -262,10 +276,11 @@ impl TryFrom<&K8sService> for Service {
             .get(ANNOTATION_STORE_SELECTOR_KEY)
             .map(|raw_store_selector| {
                 serde_json::from_str(raw_store_selector).map_err(|err| {
-                    ControllerError::ResourceDataError(format!(
-                        "Can't parse Service {service_id} : Missing required annotation '{}{}' : {}",
-                        KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_SELECTOR_KEY, err
-                    ))
+                    error::ParseResource::Failed{
+                        id: format!("{service_id}"),
+                        resource: format!(".annotation.{}{}", KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_SELECTOR_KEY),
+                        error: format!("{err}")
+                    }
                 })
             })
             .transpose()?;
@@ -274,10 +289,11 @@ impl TryFrom<&K8sService> for Service {
             .get(ANNOTATION_STORE_PORTS_KEY)
             .map(|raw_store_ports| {
                 serde_json::from_str(raw_store_ports).map_err(|err| {
-                    ControllerError::ResourceDataError(format!(
-                        "Can't parse Service {service_id} : Missing required annotation '{}{}' : {}",
-                        KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_PORTS_KEY, err
-                    ))
+                    error::ParseResource::Failed{
+                        id: format!("service_id"),
+                        resource: format!(".annotations.{}{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_PORTS_KEY),
+                        error: format!("{err}")
+                    }
                 })
             })
             .transpose()?;

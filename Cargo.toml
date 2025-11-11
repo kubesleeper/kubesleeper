@@ -17,3 +17,4 @@ reqwest = { version = "0.12.20", default-features = false, features = ["rustls-t
 thiserror = "1.0.69"
 tokio-cron-scheduler = "0.14.0"
 indoc = "2"
+serde = "1.0.228"

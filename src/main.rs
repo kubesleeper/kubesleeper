@@ -1,9 +1,13 @@
 extern crate rocket;
 mod core;
 
+use std::process;
+
 use clap::{Parser, Subcommand};
 
+use crate::core::controller::error::Controller;
 use crate::core::controller::service::Service;
+use crate::core::ingress::error::IngressError;
 use crate::core::state::state::create_schedule;
 use crate::core::{controller::deploy::Deploy, ingress::IngressType, server};
 
@@ -42,8 +46,21 @@ enum TestCommands {
     RedirectServiceToOrigin { namespace: String, name: String },
 }
 
+
+
+#[derive(Debug, thiserror::Error)]
+enum Error{
+    #[error(transparent)]
+    ControllerError(#[from] Controller),
+    
+    #[error(transparent)]
+    IngressError(#[from] IngressError),
+}
+
+
+
 #[tokio::main]
-async fn main() {
+async fn process() -> Result<(), Error> {
     let cli = Cli::parse();
 
     match cli.command {
@@ -94,22 +111,6 @@ async fn main() {
         Commands::Manual(test_cmd) => match test_cmd {
             TestCommands::SetDeployAsleep { name, namespace } => {
                 println!("Set asleep deploy '{}' from '{}'", name, namespace);
-
-                /*
-                if let Some(&deploy) = Deploy::get_all("ks")
-                    .await
-                    .unwrap()
-                    .iter()
-                    .find(|x| x.name == name)
-                    .as_mut()
-                    .iter_mut()
-                {
-                    deploy.sleep().await.unwrap(); <<<<
-                } else {
-                    eprintln!("Error : Deployment not found");
-                }
-
-                                 */
                 if let Some(deploy) = Deploy::get_all("ks")
                     .await
                     .unwrap()
@@ -164,5 +165,17 @@ async fn main() {
                 }
             }
         },
+    }
+    Ok(())
+}
+
+
+fn main() {
+    match process() {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("Error : {}", e);
+            process::exit(1);
+        }
     }
 }

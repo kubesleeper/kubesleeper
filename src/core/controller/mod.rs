@@ -15,16 +15,16 @@ pub mod constantes{
     // pub const SERVER_SELECTOR                   : (&str, &str) = ("app", "kubesleeper");
 }
 
+
 pub mod error {
     #[derive(Debug, thiserror::Error)]
-    pub enum ControllerError {
+    pub enum Controller {
         #[allow(dead_code)]
         #[error("KubeError : {0}")]
         KubeError(#[from] kube::Error),
 
-        #[allow(dead_code)]
-        #[error("ResourceDataError : {0}")]
-        ResourceDataError(String),
+        #[error("Can't parse resource : {0}")]
+        ParseResource(#[from] ParseResource),
 
         #[allow(dead_code)]
         #[error("SerdeJsonError : {0}")]
@@ -34,4 +34,29 @@ pub mod error {
         #[error("StateKindError : {0}")]
         StateKindError(String),
     }
+
+
+
+    #[derive(Debug, thiserror::Error)]
+    pub enum ParseResource {
+        #[error("Required value '{resource}' is missing on resource '{id}'.")]
+        MissingValue{
+            /// Resource identifier (like "{name}/{namespace}")
+            id: String,
+            /// name of the missing value
+            resource: String
+        },
+        
+        #[error("Failed to parse value '{resource}' of resource '{id}' : {error}.")]
+        Failed {
+            /// Resource identifier (like "namespace/name").
+            id: String,
+            /// Name of the value that can't be parsed (e.g., ".spec.replicas").
+            resource: String,
+            /// Parsing error message (e.g., "invalid digit found in string").
+            error: String,
+        },
+    }
 }
+
+

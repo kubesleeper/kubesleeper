@@ -1,4 +1,4 @@
-use crate::core::controller::error::ControllerError;
+use crate::core::controller::error;
 
 pub mod notification;
 pub mod state;
@@ -10,7 +10,7 @@ pub enum StateError {
     LockError(String),
 
     #[error(transparent)]
-    ControllerError(#[from] ControllerError),
+    Controller(#[from] error::Controller),
 
     #[error("Invalid State Kind: {0}")]
     InvalidStateKindError(String),
