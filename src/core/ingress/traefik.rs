@@ -1,5 +1,5 @@
-use crate::core::ingress::IngressType;
 use crate::core::ingress::error::IngressError;
+use crate::core::ingress::{IngressType};
 
 use k8s_openapi::api::core::v1::Pod;
 use kube::api::ListParams;
@@ -13,7 +13,7 @@ const TRAEFIK_REGEXP_METRIC: &str = r#"traefik_service_requests_total\{.*service
 pub struct Traefik {}
 
 impl IngressType for Traefik {
-    async fn get_metrics_pods() -> Result<Vec<Pod>, IngressError> {
+    async fn get_ingress_pods() -> Result<Vec<Pod>, IngressError> {
         let mut config = Config::infer().await?;
         config.default_namespace = "kube-system".to_string();
         let client = Client::try_from(config)?;
@@ -42,7 +42,12 @@ impl IngressType for Traefik {
                 "Wrong groups number were found in '{full}' with regex '{TRAEFIK_REGEXP_METRIC}'"
             );
             let service_name: String = groups[0].to_string();
-            let nb: u64 = groups[1].parse()?;
+            let nb: u64 = groups[1].parse().map_err(|err| {
+                IngressError::ParsingMetricError(format!(
+                    "Can't parse nomber of calls received : {}",
+                    err
+                ))
+            })?;
 
             *res.entry(service_name).or_insert(0) += nb;
         }

@@ -8,7 +8,9 @@ use rocket::{
 
 use std::path::{Path, PathBuf};
 
-use crate::core::state::{Notification, NotificationKind, State};
+use crate::core::state::state::State;
+use crate::core::state::notification::NotificationKind;
+use crate::core::state::notification::Notification;
 
 const KUBESLEEPER_REST_PATH_PREFIX: &str = "/kubesleeper";
 
@@ -43,7 +45,7 @@ async fn apps(path: PathBuf) -> Option<Redirect> {
         return None;
     };
 
-    State::update_from_notif(Notification::new(NotificationKind::Activity))
+    State::update_from_notification(Notification::new(NotificationKind::Activity))
         .await
         .unwrap();
     Some(Redirect::to(format!("{KUBESLEEPER_REST_PATH_PREFIX}/wait")))

@@ -9,8 +9,6 @@ use crate::core::ingress::error::IngressError;
 pub mod traefik;
 
 pub mod error {
-    use std::num::ParseIntError;
-
     use kube::config::InferConfigError;
 
     #[derive(Debug, thiserror::Error)]
@@ -27,17 +25,18 @@ pub mod error {
         #[error("ResourceDataError : {0}")]
         ResourceDataError(String),
 
+        #[allow(dead_code)]
+        #[error("ParsingMetricError : {0}")]
+        ParsingMetricError(String),
+
         #[error("InferConfigError : {0}")]
         InferConfigError(#[from] InferConfigError),
-
-        #[error("ParseIntError : {0}")]
-        ParseIntError(#[from] ParseIntError),
     }
 }
 
 pub trait IngressType {
     /// Retrieve all child pod of the ingress
-    async fn get_metrics_pods() -> Result<Vec<Pod>, IngressError>;
+    async fn get_ingress_pods() -> Result<Vec<Pod>, IngressError>;
 
     /// Parse the raw prometheus metric dump of a single ingress metric pod (fetched by `get_metrics_pods`)
     /// to get all the number of connection that occurs for a specific service
@@ -51,15 +50,18 @@ pub trait IngressType {
     ///
     /// Return a HashMap of 'service name' : { 'metric po': 'nb connection' }
     async fn get_metrics() -> Result<HashMap<String, HashMap<String, u64>>, IngressError> {
-        let metrics_pods = Self::get_metrics_pods().await?;
+        let ingress_pods = Self::get_ingress_pods().await?;
         let mut res: HashMap<String, HashMap<String, u64>> = HashMap::new();
 
-        for metrics_pod in metrics_pods {
-            let dump = get_prometheus_raw_metrics_dump(&metrics_pod).await?;
+        for ingress_pod in ingress_pods {
+            let dump = get_prometheus_raw_metrics_dump(&ingress_pod).await?;
 
             for (service_name, nb_connection) in Self::parse_prometheus_metrics(dump).await? {
-                let uid = metrics_pod.metadata.uid.to_owned().unwrap();
-                *res.entry(service_name).or_default().entry(uid).or_default() += nb_connection;
+                let ingress_pod_uid = ingress_pod.metadata.uid.to_owned().unwrap();
+                *res.entry(service_name)
+                    .or_default()
+                    .entry(ingress_pod_uid)
+                    .or_default() += nb_connection;
             }
         }
         Ok(res)
@@ -70,12 +72,6 @@ const PROMETHEUS_PORT_ANNOTATION: &str = "prometheus.io/port";
 const PROMETHEUS_PATH_ANNOTATION: &str = "prometheus.io/path";
 
 pub async fn get_prometheus_raw_metrics_dump(pod: &Pod) -> Result<String, IngressError> {
-    // let pod_id = format!(
-    //     "{} {}",
-    //     pod.metadata.name.clone().unwrap_or_default(),
-    //     pod.metadata.namespace.clone().unwrap_or_default()
-    // );
-
     let port = pod.annotations().get(PROMETHEUS_PORT_ANNOTATION).ok_or(
         IngressError::ResourceDataError("No port annotation".to_string()),
     )?;

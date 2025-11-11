@@ -5,8 +5,9 @@ use clap::{Parser, Subcommand};
 
 use crate::core::controller::service::Service;
 use crate::core::{
-    controller::deploy::Deploy, ingress::IngressType, server, state::create_schedule,
+    controller::deploy::Deploy, ingress::IngressType, server,
 };
+use crate::core::state::state::create_schedule;
 
 #[derive(Parser)]
 #[command(name = "kubesleeper", version)]
@@ -25,7 +26,7 @@ enum Commands {
 
     #[command(subcommand)]
     /// Exec specific manual action for testing
-    Test(TestCommands),
+    Manual(TestCommands),
 }
 
 #[derive(Subcommand)]
@@ -43,6 +44,22 @@ enum TestCommands {
     RedirectServiceToOrigin { namespace: String, name: String },
 }
 
+
+
+read k8s > Deploy
+
+Deploy.replicas = 0
+Deploy.replicas = 0
+Deploy.replicas = 0
+Deploy.annotations = 0
+
+Deploy.patch()
+
+
+
+
+
+
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
@@ -54,15 +71,16 @@ async fn main() {
         }
         Commands::Status => {
             println!("━━━ Deploys\n");
-            let deploys = crate::core::controller::deploy::Deploy::get_all()
+            let deploys = crate::core::controller::deploy::Deploy::get_all("ks")
                 .await
                 .unwrap();
+            
             deploys.iter().for_each(|deploy| {
                 println!("{deploy}");
             });
 
             println!("━━━ Services\n");
-            let services = crate::core::controller::service::Service::get_all()
+            let services = crate::core::controller::service::Service::get_all("ks")
                 .await
                 .unwrap();
             services.iter().for_each(|service| {
@@ -70,7 +88,7 @@ async fn main() {
             });
 
             println!("\n\n━━━ Metrics\n");
-            let metrics_pods = crate::core::ingress::traefik::Traefik::get_metrics_pods()
+            let metrics_pods = crate::core::ingress::traefik::Traefik::get_ingress_pods()
                 .await
                 .unwrap();
 
@@ -91,14 +109,29 @@ async fn main() {
             );
         }
 
-        Commands::Test(test_cmd) => match test_cmd {
+        Commands::Manual(test_cmd) => match test_cmd {
             TestCommands::SetDeployAsleep { name, namespace } => {
                 println!("Set asleep deploy '{}' from '{}'", name, namespace);
 
-                if let Some(deploy) = Deploy::get_all()
+                /*
+if let Some(&deploy) = Deploy::get_all("ks")
+    .await
+    .unwrap()
+    .iter()
+    .find(|x| x.name == name)
+    .as_mut()
+    .iter_mut()
+{
+    deploy.sleep().await.unwrap(); <<<< 
+} else {
+    eprintln!("Error : Deployment not found");
+}
+                 
+                 */
+                if let Some(deploy) = Deploy::get_all("ks")
                     .await
                     .unwrap()
-                    .iter()
+                    .iter_mut()
                     .find(|x| x.name == name)
                 {
                     deploy.sleep().await.unwrap();
@@ -109,10 +142,10 @@ async fn main() {
             TestCommands::SetDeployAwake { name, namespace } => {
                 println!("Set asleep deploy '{}' from '{}'", name, namespace);
 
-                if let Some(deploy) = Deploy::get_all()
+                if let Some(deploy) = Deploy::get_all("ks")
                     .await
                     .unwrap()
-                    .iter()
+                    .iter_mut()
                     .find(|x| x.name == name)
                 {
                     deploy.wake().await.unwrap();
@@ -123,13 +156,13 @@ async fn main() {
             TestCommands::RedirectServiceToServer { name, namespace } => {
                 println!("Redirect service '{}' from '{}' to server", name, namespace);
 
-                if let Some(service) = Service::get_all()
+                if let Some(service) = Service::get_all("ks")
                     .await
                     .unwrap()
-                    .iter()
+                    .iter_mut()
                     .find(|x| x.name == name)
                 {
-                    service.redirect_to_server().await.unwrap();
+                    service.sleep().await.unwrap();
                 } else {
                     panic!("Service not found");
                 }
@@ -137,13 +170,13 @@ async fn main() {
             TestCommands::RedirectServiceToOrigin { name, namespace } => {
                 println!("Redirect service '{}' from '{}' to origin", name, namespace);
 
-                if let Some(service) = Service::get_all()
+                if let Some(service) = Service::get_all("ks")
                     .await
                     .unwrap()
-                    .iter()
+                    .iter_mut()
                     .find(|x| x.name == name)
                 {
-                    service.redirect_to_origin().await.unwrap();
+                    service.wake().await.unwrap();
                 } else {
                     panic!("Service not found");
                 }
