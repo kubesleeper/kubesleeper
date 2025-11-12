@@ -16,5 +16,6 @@ regex = "1.11.1"
 reqwest = { version = "0.12.20", default-features = false, features = ["rustls-tls"] }
 thiserror = "1.0.69"
 tokio-cron-scheduler = "0.14.0"
-indoc = "2"
 serde = "1.0.228"
+serde_yaml = "0.9"
+indent = "0.1.1"

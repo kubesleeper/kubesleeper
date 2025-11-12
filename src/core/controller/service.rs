@@ -37,19 +37,23 @@ impl Display for ServicePort {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,Serialize)]
 pub struct Service {
     pub name: String,
     pub namespace: String,
     pub selector: HashMap<String, String>,
-    pub store_selector: Option<HashMap<String, String>>,
 
     // using i32 as key and not name cause name is optional.
     // IntOrString cause it could be map 80:myPort service side,
     // to match a port named myPort in target container side
     pub ports: Vec<ServicePort>,
-    pub store_ports: Option<Vec<ServicePort>>,
+    
+    #[serde(rename = "stored state")]
     pub store_state: Option<StateKind>,
+    #[serde(rename = "stored selector")]
+    pub store_selector: Option<HashMap<String, String>>,
+    #[serde(rename = "stored ports")]
+    pub store_ports: Option<Vec<ServicePort>>,
 }
 
 impl Service {
@@ -79,7 +83,7 @@ impl Service {
             },
             "metadata": {
                 "annotations": {
-                    format!("{KUBESLEEPER_ANNOTATION_PREFIX}{ANNOTATION_STORE_STATE_KEY}"): StateKind::display_option(&self.store_state),
+                    format!("{KUBESLEEPER_ANNOTATION_PREFIX}{ANNOTATION_STORE_STATE_KEY}"): &self.store_state,
                     format!("{KUBESLEEPER_ANNOTATION_PREFIX}{ANNOTATION_STORE_SELECTOR_KEY}"): store_selector,
                     format!("{KUBESLEEPER_ANNOTATION_PREFIX}{ANNOTATION_STORE_PORTS_KEY}"): store_ports
                 }
@@ -112,9 +116,9 @@ impl Service {
             .store_selector
             .clone()
             .ok_or(
-                error::ParseResource::MissingValue {
+                error::ResourceParse::MissingValue {
                     id: format!("{}/{}",self.name,self.namespace),
-                    resource: format!(".annotations.{}/{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_SELECTOR_KEY)
+                    value: format!(".annotations.{}/{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_SELECTOR_KEY)
                 }
             )?;
 
@@ -122,9 +126,9 @@ impl Service {
             .store_ports
             .clone()
             .ok_or(
-                error::ParseResource::MissingValue {
+                error::ResourceParse::MissingValue {
                     id: format!("{}/{}",self.name,self.namespace),
-                    resource: format!(".annotations.{}/{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_PORTS_KEY)
+                    value: format!(".annotations.{}/{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_PORTS_KEY)
                 }
             )?;
 
@@ -184,19 +188,11 @@ impl Service {
 }
 
 impl fmt::Display for Service {
-    #[rustfmt::skip]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "{}", self.name)?;
-        writeln!(f, "  Namespace        : {}", &self.namespace)?;
-        writeln!(f, "  Current Selector : {:?}", &self.selector)?;
-        writeln!(f, "  Store Selector   : {:?}", &self.store_selector)?;
-        writeln!(f, "  Current Ports    : {}", &self.ports.iter().map(|p|p.to_string()).collect::<Vec<_>>().join(", "))?;
-        writeln!(f, "  Store Ports      : {}", self.store_ports
-            .as_ref()
-            .map(|x|{
-                x.iter().map(|p|p.to_string()).collect::<Vec<_>>().join(", ")
-            })
-            .unwrap_or("None".to_string()))?;
+        writeln!(f, "{}",
+            serde_yaml::to_string(&self)
+                .unwrap_or_else(|e| format!("{e} : The structure should always be serializable at this point"))
+                .trim())?;
         Ok(())
     }
 }
@@ -208,16 +204,16 @@ impl TryFrom<&K8sService> for Service {
         // --- explicit data
         let name = service
             .name()
-            .ok_or_else(|| error::ParseResource::MissingValue{
+            .ok_or_else(|| error::ResourceParse::MissingValue{
                 id: format!("?/?"),
-                resource: format!("name")
+                value: format!("name")
                 
             })?
             .to_string();
         let namespace = ResourceExt::namespace(service).ok_or(
-            error::ParseResource::MissingValue{
+            error::ResourceParse::MissingValue{
                 id: format!("{name}/?"),
-                resource: format!("namespace")
+                value: format!("namespace")
             }
         )?;
 
@@ -228,9 +224,9 @@ impl TryFrom<&K8sService> for Service {
             .as_ref()
             .and_then(|s| s.selector.as_ref())
             .ok_or_else(|| {
-                error::ParseResource::MissingValue{
+                error::ResourceParse::MissingValue{
                     id: format!("{service_id}"),
-                    resource: format!(".spec.selector")
+                    value: format!(".spec.selector")
                 }
             })?
             .clone()
@@ -242,9 +238,9 @@ impl TryFrom<&K8sService> for Service {
             .as_ref()
             .and_then(|s| s.ports.as_ref())
             .ok_or_else(|| {
-                error::ParseResource::MissingValue{
+                error::ResourceParse::MissingValue{
                     id: format!("{service_id}"),
-                    resource: format!(".spec.ports")
+                    value: format!(".spec.ports")
                 }
             })?
             .clone()
@@ -264,9 +260,9 @@ impl TryFrom<&K8sService> for Service {
             .get(ANNOTATION_STORE_STATE_KEY)
             .map(|raw_store_state| {
                 StateKind::try_from(raw_store_state).map_err(|err| {
-                    error::ParseResource::MissingValue{
+                    error::ResourceParse::MissingValue{
                         id: format!("{service_id}"),
-                        resource: format!(".annotations.{}{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY)
+                        value: format!(".annotations.{}{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY)
                     }
                 })
             })
@@ -276,9 +272,9 @@ impl TryFrom<&K8sService> for Service {
             .get(ANNOTATION_STORE_SELECTOR_KEY)
             .map(|raw_store_selector| {
                 serde_json::from_str(raw_store_selector).map_err(|err| {
-                    error::ParseResource::Failed{
+                    error::ResourceParse::ParseFailed{
                         id: format!("{service_id}"),
-                        resource: format!(".annotation.{}{}", KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_SELECTOR_KEY),
+                        value: format!(".annotation.{}{}", KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_SELECTOR_KEY),
                         error: format!("{err}")
                     }
                 })
@@ -289,9 +285,9 @@ impl TryFrom<&K8sService> for Service {
             .get(ANNOTATION_STORE_PORTS_KEY)
             .map(|raw_store_ports| {
                 serde_json::from_str(raw_store_ports).map_err(|err| {
-                    error::ParseResource::Failed{
+                    error::ResourceParse::ParseFailed{
                         id: format!("service_id"),
-                        resource: format!(".annotations.{}{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_PORTS_KEY),
+                        value: format!(".annotations.{}{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_PORTS_KEY),
                         error: format!("{err}")
                     }
                 })
