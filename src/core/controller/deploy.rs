@@ -15,7 +15,7 @@ pub struct Deploy {
     pub name: String,
     pub namespace: String,
     pub replicas: i32,
-    
+
     #[serde(rename = "stored state")]
     pub store_state: Option<StateKind>,
     #[serde(rename = "stored replicas")]
@@ -28,27 +28,24 @@ impl TryFrom<&Deployment> for Deploy {
         // --- explicit data
         let name = deploy
             .name()
-            .ok_or(
-                error::ResourceParse::MissingValue{
-                    id: "?/?".to_string(),
-                    value: "name".to_string()
-                }
-            )?
+            .ok_or(error::ResourceParse::MissingValue {
+                id: "?/?".to_string(),
+                value: "name".to_string(),
+            })?
             .to_string();
-        
-        let namespace = ResourceExt::namespace(deploy).ok_or(
-            error::ResourceParse::MissingValue{
+
+        let namespace =
+            ResourceExt::namespace(deploy).ok_or(error::ResourceParse::MissingValue {
                 id: format!("{name}"),
-                value: "namespace".to_string()   
-            }
-        )?;
+                value: "namespace".to_string(),
+            })?;
         let deploy_id = format!("{namespace}/{name}");
-        
+
         let replicas = deploy.spec.as_ref().and_then(|s| s.replicas).ok_or(
-            error::ResourceParse::MissingValue{
+            error::ResourceParse::MissingValue {
                 id: format!("{deploy_id}"),
-                value: ".spec".to_string()
-            }
+                value: ".spec".to_string(),
+            },
         )?;
 
         // --- store annotation
@@ -61,10 +58,13 @@ impl TryFrom<&Deployment> for Deploy {
             .get(ANNOTATION_STORE_STATE_KEY)
             .map(|raw_store_state| {
                 StateKind::try_from(raw_store_state).map_err(|err| {
-                    error::ResourceParse::ParseFailed{
+                    error::ResourceParse::ParseFailed {
                         id: format!("{deploy_id}"),
-                        value: format!(".annotations.{}{}", KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY),
-                        error: format!("{err}")
+                        value: format!(
+                            ".annotations.{}{}",
+                            KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY
+                        ),
+                        error: format!("{err}"),
                     }
                 })
             })
@@ -74,13 +74,16 @@ impl TryFrom<&Deployment> for Deploy {
         let store_replicas = annotations
             .get(ANNOTATION_STORE_REPLICAS_KEY)
             .map(|raw_store_replicas| {
-                raw_store_replicas.parse::<i32>().map_err(|err| {
-                    error::ResourceParse::ParseFailed{
+                raw_store_replicas
+                    .parse::<i32>()
+                    .map_err(|err| error::ResourceParse::ParseFailed {
                         id: format!("{deploy_id}"),
-                        value: format!(".annotations.{}{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY),
-                        error: format!("{err}")
-                    }
-                })
+                        value: format!(
+                            ".annotations.{}{}",
+                            KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY
+                        ),
+                        error: format!("{err}"),
+                    })
             })
             .transpose()?;
         Ok(Deploy {
@@ -114,7 +117,6 @@ impl Deploy {
                 }
             }
         });
-        println!("{patch}");
         let params = PatchParams::default();
         let patch = Patch::Merge(&patch);
         Deploy::get_k8s_api(&self.namespace)
@@ -138,12 +140,13 @@ impl Deploy {
 
         self.replicas = self
             .store_replicas
-            .ok_or(
-                error::ResourceParse::MissingValue {
-                    id: format!("{}/{}",self.name,self.namespace),
-                    value: format!("{}{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_REPLICAS_KEY)
-                }
-            )?;
+            .ok_or(error::ResourceParse::MissingValue {
+                id: format!("{}/{}", self.name, self.namespace),
+                value: format!(
+                    "{}{}",
+                    KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_REPLICAS_KEY
+                ),
+            })?;
         self.store_state = Some(StateKind::Awake);
         self.patch().await
     }
@@ -169,6 +172,15 @@ impl Deploy {
             .list(&ListParams::default())
             .await?
             .iter()
+            .filter(|deploy| {
+                deploy
+                    .metadata
+                    .labels
+                    .as_ref()
+                    .unwrap_or(&BTreeMap::new())
+                    .get(KUBESLEEPER_SERVER_LABEL_KEY)
+                    != Some(&KUBESLEEPER_SERVER_LABEL_VALUE.to_string())
+            }) // TODO verify that kubesleeper label is found otherwise we kill it ad vitam aeternam
             .map(|d| Deploy::try_from(d))
             .collect()
     }
@@ -188,10 +200,15 @@ impl Deploy {
 
 impl fmt::Display for Deploy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "{}",
+        writeln!(
+            f,
+            "{}",
             serde_yaml::to_string(&self)
-                .unwrap_or_else(|e| format!("{e} : The structure should always be serializable at this point"))
-                .trim())?;
+                .unwrap_or_else(|e| format!(
+                    "{e} : The structure should always be serializable at this point"
+                ))
+                .trim()
+        )?;
         Ok(())
     }
 }

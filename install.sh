@@ -92,7 +92,7 @@ fi
 printf "\nAvailable envs :\n  none\n"
 available_envs=$(find envs/ -type d | sed 1d | sed 's#envs/##')
 printf "%s" $available_envs | sed "s/^/  /"
-printf "\nWich env to install : "
+printf "\nWhich env to install : "
 read ENV
 printf "\n"
 

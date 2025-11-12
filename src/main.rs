@@ -48,21 +48,17 @@ enum TestCommands {
     RedirectServiceToOrigin { namespace: String, name: String },
 }
 
-
-
 #[derive(Debug, thiserror::Error)]
-enum Error{
+enum Error {
     #[error(transparent)]
     ControllerError(#[from] Controller),
-    
+
     #[error(transparent)]
     IngressError(#[from] IngressError),
-    
+
     #[error(transparent)]
-    JobSchedulerError(#[from] JobSchedulerError)
+    JobSchedulerError(#[from] JobSchedulerError),
 }
-
-
 
 #[tokio::main]
 async fn process() -> Result<(), Error> {
@@ -74,42 +70,42 @@ async fn process() -> Result<(), Error> {
             server::start().await.unwrap(); // TODO: use ? by adding the correct error type in Error struct
         }
         Commands::Status => {
-        
-            let deploys = crate::core::controller::deploy::Deploy::get_all("ks")
-                .await?;
+            let deploys = crate::core::controller::deploy::Deploy::get_all("ks").await?;
 
-            let services = crate::core::controller::service::Service::get_all("ks")
-                .await?;
+            let services = crate::core::controller::service::Service::get_all("ks").await?;
 
             let traefik_metrics_pods = crate::core::ingress::traefik::Traefik::get_ingress_pods()
                 .await?
                 .into_iter()
                 .map(|pod| pod.metadata.name)
                 .collect::<Vec<_>>();
-            
-            
+
             #[derive(Serialize)]
             pub struct MetricPodsClass {
                 traefik: Vec<Option<String>>,
             }
-            
+
             #[derive(Serialize)]
             pub struct Status {
                 deploys: Vec<Deploy>,
                 services: Vec<Service>,
                 #[serde(rename = "metric pods")]
-                metricPods: MetricPodsClass
+                metric_pods: MetricPodsClass,
             }
-            
-            println!("{}",serde_yaml::to_string(
-                &Status{
+
+            println!(
+                "{}",
+                serde_yaml::to_string(&Status {
                     deploys: deploys,
                     services: services,
-                    metricPods: MetricPodsClass{
+                    metric_pods: MetricPodsClass {
                         traefik: traefik_metrics_pods
                     }
-                }
-            ).unwrap_or_else(|e| format!("{e} : Status structur should be serealizable at this point")))
+                })
+                .unwrap_or_else(|e| format!(
+                    "{e} : Status structur should be serealizable at this point"
+                ))
+            )
         }
 
         Commands::Manual(test_cmd) => match test_cmd {
@@ -168,7 +164,6 @@ async fn process() -> Result<(), Error> {
     }
     Ok(())
 }
-
 
 fn main() {
     match process() {

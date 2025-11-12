@@ -52,8 +52,8 @@ impl State {
                         // to be registerd is must has received at least 1 connection, so there was activity
                         return Ok(Notification::new(NotificationKind::Activity));
                     }
-                    if stored_total_connection.map_or(false, |stored| stored <= total_connection) {
-                        // there was a activity cas a ingress pod has proceed at least 1 connection
+                    if stored_total_connection.map_or(false, |stored| stored < total_connection) {
+                        // there was an activity and an ingress pod has proceed at least 1 connection
                         return Ok(Notification::new(NotificationKind::Activity));
                     }
                 }
@@ -81,8 +81,10 @@ impl State {
                 }
                 (NotificationKind::NoActivity, NotificationKind::NoActivity) => {
                     let sleepness_duration = notification.timestamp - state.since.timestamp;
-                    if sleepness_duration >= MAX_SLEEPNESS_DURATION {
-                        // The application has been in slpeepness mode for too long; it must set asleep.
+                    if sleepness_duration >= MAX_SLEEPNESS_DURATION
+                        && state.kind != StateKind::Asleep
+                    {
+                        // The application has been in sleepness mode for too long; it must set asleep.
                         state.kind = StateKind::Asleep;
                         action = Some(StateKind::Asleep);
                     }
@@ -137,7 +139,10 @@ pub async fn create_schedule() -> JobScheduler {
                     {
                         let metrics = Traefik::get_metrics().await;
 
-                        State::update_from_metrics(metrics.unwrap()).await.unwrap();
+                        State::update_from_metrics(metrics.map_err(|e| e.to_string()).unwrap())
+                            .await
+                            .map_err(|e| e.to_string())
+                            .unwrap();
                     }
 
                     // Query the next execution time for this job
