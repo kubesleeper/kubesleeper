@@ -1,8 +1,11 @@
 use core::fmt;
 
+use serde::Serialize;
+
 use super::StateError;
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Debug, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum StateKind {
     Asleep,
     Awake,
@@ -18,11 +21,12 @@ impl fmt::Display for StateKind {
 }
 
 impl StateKind {
-    pub fn display_option(state_kind: &Option<StateKind>) -> String {
-        match state_kind {
-            Some(e) => e.to_string(),
-            None => "none".to_string(),
-        }
+    pub fn to_yaml(state_kind: &Option<StateKind>) -> String {
+        serde_yaml::to_string(state_kind)
+            .unwrap_or_else(|e| {
+                panic!("Failed to parse Option<StateKind> '{:?}' but logically should be parsable: {:?}", state_kind, e);
+            })
+            .trim().to_string()
     }
 }
 

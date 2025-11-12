@@ -23,8 +23,8 @@ pub mod error {
         #[error("KubeError : {0}")]
         KubeError(#[from] kube::Error),
 
-        #[error("Can't parse resource : {0}")]
-        ParseResource(#[from] ParseResource),
+        #[error("Failed to parse kube resource : {0}")]
+        ResourceParse(#[from] ResourceParse),
 
         #[allow(dead_code)]
         #[error("SerdeJsonError : {0}")]
@@ -38,21 +38,21 @@ pub mod error {
 
 
     #[derive(Debug, thiserror::Error)]
-    pub enum ParseResource {
-        #[error("Required value '{resource}' is missing on resource '{id}'.")]
+    pub enum ResourceParse {
+        #[error("Resource '{id}' : Required value '{value}' is missing on.")]
         MissingValue{
             /// Resource identifier (like "{name}/{namespace}")
             id: String,
             /// name of the missing value
-            resource: String
+            value: String
         },
         
-        #[error("Failed to parse value '{resource}' of resource '{id}' : {error}.")]
-        Failed {
+        #[error("Resource '{id}' : Failed to parse value '{value}' : {error}.")]
+        ParseFailed {
             /// Resource identifier (like "namespace/name").
             id: String,
             /// Name of the value that can't be parsed (e.g., ".spec.replicas").
-            resource: String,
+            value: String,
             /// Parsing error message (e.g., "invalid digit found in string").
             error: String,
         },

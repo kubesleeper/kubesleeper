@@ -4,6 +4,8 @@ mod core;
 use std::process;
 
 use clap::{Parser, Subcommand};
+use serde::Serialize;
+use tokio_cron_scheduler::JobSchedulerError;
 
 use crate::core::controller::error::Controller;
 use crate::core::controller::service::Service;
@@ -55,6 +57,9 @@ enum Error{
     
     #[error(transparent)]
     IngressError(#[from] IngressError),
+    
+    #[error(transparent)]
+    JobSchedulerError(#[from] JobSchedulerError)
 }
 
 
@@ -65,59 +70,57 @@ async fn process() -> Result<(), Error> {
 
     match cli.command {
         Commands::Start => {
-            create_schedule().await.start().await.unwrap();
-            server::start().await.unwrap();
+            create_schedule().await.start().await?;
+            server::start().await.unwrap(); // TODO: use ? by adding the correct error type in Error struct
         }
         Commands::Status => {
-            println!("━━━ Deploys\n");
+        
             let deploys = crate::core::controller::deploy::Deploy::get_all("ks")
-                .await
-                .unwrap();
+                .await?;
 
-            deploys.iter().for_each(|deploy| {
-                println!("{deploy}");
-            });
-
-            println!("━━━ Services\n");
             let services = crate::core::controller::service::Service::get_all("ks")
-                .await
-                .unwrap();
-            services.iter().for_each(|service| {
-                println!("{service}");
-            });
+                .await?;
 
-            println!("━━━ Metrics\n");
-            let metrics_pods = crate::core::ingress::traefik::Traefik::get_ingress_pods()
-                .await
-                .unwrap();
-
-            println!(
-                "Traefik metrics pods :\n{}",
-                metrics_pods
-                    .into_iter()
-                    .map(|pod| format!("  {}", pod.metadata.name.unwrap_or("no name".to_string())))
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            );
-
-            println!(
-                "\nTraefik Metrics data :\n{:?}",
-                crate::core::ingress::traefik::Traefik::get_metrics()
-                    .await
-                    .unwrap()
-            );
+            let traefik_metrics_pods = crate::core::ingress::traefik::Traefik::get_ingress_pods()
+                .await?
+                .into_iter()
+                .map(|pod| pod.metadata.name)
+                .collect::<Vec<_>>();
+            
+            
+            #[derive(Serialize)]
+            pub struct MetricPodsClass {
+                traefik: Vec<Option<String>>,
+            }
+            
+            #[derive(Serialize)]
+            pub struct Status {
+                deploys: Vec<Deploy>,
+                services: Vec<Service>,
+                #[serde(rename = "metric pods")]
+                metricPods: MetricPodsClass
+            }
+            
+            println!("{}",serde_yaml::to_string(
+                &Status{
+                    deploys: deploys,
+                    services: services,
+                    metricPods: MetricPodsClass{
+                        traefik: traefik_metrics_pods
+                    }
+                }
+            ).unwrap_or_else(|e| format!("{e} : Status structur should be serealizable at this point")))
         }
 
         Commands::Manual(test_cmd) => match test_cmd {
             TestCommands::SetDeployAsleep { name, namespace } => {
                 println!("Set asleep deploy '{}' from '{}'", name, namespace);
                 if let Some(deploy) = Deploy::get_all("ks")
-                    .await
-                    .unwrap()
+                    .await?
                     .iter_mut()
                     .find(|x| x.name == name)
                 {
-                    deploy.sleep().await.unwrap();
+                    deploy.sleep().await?;
                 } else {
                     eprintln!("Error : Deployment not found");
                 }
@@ -126,12 +129,11 @@ async fn process() -> Result<(), Error> {
                 println!("Set asleep deploy '{}' from '{}'", name, namespace);
 
                 if let Some(deploy) = Deploy::get_all("ks")
-                    .await
-                    .unwrap()
+                    .await?
                     .iter_mut()
                     .find(|x| x.name == name)
                 {
-                    deploy.wake().await.unwrap();
+                    deploy.wake().await?;
                 } else {
                     panic!("Deployment not found");
                 }
@@ -140,12 +142,11 @@ async fn process() -> Result<(), Error> {
                 println!("Redirect service '{}' from '{}' to server", name, namespace);
 
                 if let Some(service) = Service::get_all("ks")
-                    .await
-                    .unwrap()
+                    .await?
                     .iter_mut()
                     .find(|x| x.name == name)
                 {
-                    service.sleep().await.unwrap();
+                    service.sleep().await?;
                 } else {
                     panic!("Service not found");
                 }
@@ -154,12 +155,11 @@ async fn process() -> Result<(), Error> {
                 println!("Redirect service '{}' from '{}' to origin", name, namespace);
 
                 if let Some(service) = Service::get_all("ks")
-                    .await
-                    .unwrap()
+                    .await?
                     .iter_mut()
                     .find(|x| x.name == name)
                 {
-                    service.wake().await.unwrap();
+                    service.wake().await?;
                 } else {
                     panic!("Service not found");
                 }

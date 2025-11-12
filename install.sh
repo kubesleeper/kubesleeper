@@ -51,13 +51,13 @@ then
     sleep_by_loop=1
     for i in $(seq 1 $nb_loop)
     do
-        if kubectl get nodes >/dev/null 2>&1
+        if kubectl get nodes #>/dev/null 2>&1
         then break
         else sleep $sleep_by_loop
         fi 
     done
     
-    if kubectl get nodes >/dev/null 2>&1
+    if kubectl get nodes #>/dev/null 2>&1
     then ok "k3s reachable"
     else err "k3s unreachable after $((nb_loop * sleep_by_loop))s"
     fi

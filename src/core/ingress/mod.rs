@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use k8s_openapi::api::core::v1::Pod;
-use kube::ResourceExt;
+use kube::{runtime::reflector::Lookup, ResourceExt};
 use reqwest;
 
 use crate::core::ingress::error::IngressError;
@@ -22,8 +22,8 @@ pub mod error {
         KubeError(#[from] kube::Error),
 
         #[allow(dead_code)]
-        #[error("ResourceDataError : {0}")]
-        ResourceDataError(String),
+        #[error("Failed to parse kube resource : {0}")]
+        ResourceParse(#[from] ResourceParse),
 
         #[allow(dead_code)]
         #[error("ParsingMetricError : {0}")]
@@ -32,7 +32,20 @@ pub mod error {
         #[error("InferConfigError : {0}")]
         InferConfigError(#[from] InferConfigError),
     }
+    
+    #[derive(Debug, thiserror::Error)]
+    pub enum ResourceParse {
+        #[error("Resource '{id}' : Required value '{value}' is missing on.")]
+        MissingValue{
+            /// Resource identifier (like "{name}/{namespace}")
+            id: String,
+            /// name of the missing value
+            value: String
+        }
+    }
 }
+
+
 
 pub trait IngressType {
     /// Retrieve all child pod of the ingress
@@ -72,20 +85,37 @@ const PROMETHEUS_PORT_ANNOTATION: &str = "prometheus.io/port";
 const PROMETHEUS_PATH_ANNOTATION: &str = "prometheus.io/path";
 
 pub async fn get_prometheus_raw_metrics_dump(pod: &Pod) -> Result<String, IngressError> {
+    let pod_id = format!("{}/{}",
+        pod.name().unwrap_or("?".into()),
+        ResourceExt::namespace(pod).unwrap_or("?".into())
+    );
+    
     let port = pod.annotations().get(PROMETHEUS_PORT_ANNOTATION).ok_or(
-        IngressError::ResourceDataError("No port annotation".to_string()),
+        error::ResourceParse::MissingValue{
+            id: format!("{pod_id}"),
+            value: format!(".annotation.{}",PROMETHEUS_PORT_ANNOTATION)
+        },
     )?;
 
     let ip = match &pod.status {
         Some(status) => match &status.pod_ip {
             Some(ip) => Ok(ip),
-            None => Err(IngressError::ResourceDataError("No ip".to_string())),
+            None => Err(error::ResourceParse::MissingValue{
+                id: format!("{pod_id}"),
+                value: format!(".status.ip")
+            }),
         },
-        None => Err(IngressError::ResourceDataError("No status".to_string())),
+        None => Err(error::ResourceParse::MissingValue{
+                id: format!("{pod_id}"),
+                value: format!(".status")
+            }),
     }?;
 
     let path = pod.annotations().get(PROMETHEUS_PATH_ANNOTATION).ok_or(
-        IngressError::ResourceDataError("No path annotation".to_string()),
+        error::ResourceParse::MissingValue{
+                id: format!("{pod_id}"),
+                value: format!(".annotations.{}",PROMETHEUS_PATH_ANNOTATION)
+            }
     )?;
 
     let url = format!("http://{}:{}/{}", ip, port, path);
