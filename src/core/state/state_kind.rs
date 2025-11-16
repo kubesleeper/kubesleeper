@@ -1,10 +1,12 @@
 use core::fmt;
 
+use clap::ValueEnum;
 use serde::Serialize;
 
 use super::StateError;
 
-#[derive(Eq, PartialEq, Debug, Serialize)]
+// ValueEnum for allowing Clap to take StateKind as argument type
+#[derive(Eq, PartialEq, Debug, Serialize, Clone,ValueEnum,Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum StateKind {
     Asleep,
@@ -17,16 +19,6 @@ impl fmt::Display for StateKind {
             StateKind::Asleep => write!(f, "{}", format!("{:?}", StateKind::Asleep).to_lowercase()),
             StateKind::Awake => write!(f, "{}", format!("{:?}", StateKind::Awake).to_lowercase()),
         }
-    }
-}
-
-impl StateKind {
-    pub fn to_yaml(state_kind: &Option<StateKind>) -> String {
-        serde_yaml::to_string(state_kind)
-            .unwrap_or_else(|e| {
-                panic!("Failed to parse Option<StateKind> '{:?}' but logically should be parsable: {:?}", state_kind, e);
-            })
-            .trim().to_string()
     }
 }
 

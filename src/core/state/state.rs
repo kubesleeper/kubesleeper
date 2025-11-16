@@ -21,8 +21,7 @@ lazy_static! {
 //pub const ANNOTATION_STORE_STATE_KEY: &str = "store.state";
 
 const MAX_SLEEPNESS_DURATION: Duration = Duration::new(15, 0);
-/// TODO : dynamic from config
-// - - - - - - - - - - - - -
+
 
 pub struct State {
     pub kind: StateKind,
