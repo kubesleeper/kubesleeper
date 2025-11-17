@@ -35,6 +35,12 @@ pub mod error {
         #[allow(dead_code)]
         #[error("StateKindError : {0}")]
         StateKindError(String),
+        
+        #[error("No kubesleeper pod found during deploy parsing.")]
+        MissingKubesleeperDeploy,
+
+        #[error("More than one kubesleeper pod found during deploy parsing.")]
+        TooMuchKubesleeperDeploy,
     }
 
     #[derive(Debug, thiserror::Error)]
@@ -47,7 +53,7 @@ pub mod error {
             value: String,
         },
 
-        #[error("Resource '{id}' : Failed to parse value '{value}' : {error}.")]
+        #[error("Resource '{id}' : Failed to parse value '{value}' : {error}")]
         ParseFailed {
             /// Resource identifier (like "namespace/name").
             id: String,

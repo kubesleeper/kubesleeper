@@ -167,22 +167,38 @@ impl Deploy {
     }
 
     pub async fn get_all(namespace: &str) -> Result<Vec<Deploy>, error::Controller> {
-        Deploy::get_k8s_api(namespace)
+        let mut res: Vec<Deploy> = vec![];
+        let mut is_kubesleeper_deploy_detected = false;
+
+        let deploys = Deploy::get_k8s_api(namespace)
             .await?
             .list(&ListParams::default())
-            .await?
-            .iter()
-            .filter(|deploy| {
-                deploy
-                    .metadata
-                    .labels
-                    .as_ref()
-                    .unwrap_or(&BTreeMap::new())
-                    .get(KUBESLEEPER_SERVER_LABEL_KEY)
-                    != Some(&KUBESLEEPER_SERVER_LABEL_VALUE.to_string())
-            }) // TODO verify that kubesleeper label is found otherwise we kill it ad vitam aeternam
-            .map(|d| Deploy::try_from(d))
-            .collect()
+            .await?;
+
+        for deploy in deploys.iter() {
+            if deploy
+                .metadata
+                .labels
+                .as_ref()
+                .unwrap_or(&BTreeMap::new())
+                .get(KUBESLEEPER_SERVER_LABEL_KEY)
+                != Some(&KUBESLEEPER_SERVER_LABEL_VALUE.to_string())
+            {
+                match Deploy::try_from(deploy) {
+                    Ok(d) => res.push(d),
+                    Err(e) => return Err(e),
+                }
+            } else {
+                if is_kubesleeper_deploy_detected { // if one kubesleeper deploy has already been detected
+                    return Err(error::Controller::TooMuchKubesleeperDeploy);
+                }
+                is_kubesleeper_deploy_detected = true;
+            }
+        }
+        if !is_kubesleeper_deploy_detected {
+            return Err(error::Controller::MissingKubesleeperDeploy);
+        }
+        Ok(res)
     }
 
     pub async fn change_all_state(state: StateKind) -> Result<(), error::Controller> {
