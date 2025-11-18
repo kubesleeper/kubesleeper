@@ -1,3 +1,5 @@
+use crate::core::controller::deploy::Deploy;
+
 pub mod annotations;
 pub mod deploy;
 pub mod service;
@@ -15,7 +17,7 @@ pub mod constantes{
     pub const KUBESLEEPER_SERVER_LABEL_KEY      : &str = "app";
     pub const KUBESLEEPER_SERVER_LABEL_VALUE    : &str = "kubesleeper";
     pub const KUBESLEEPER_SERVER_PORT           : i32 = 8000;
-    // pub const SERVER_SELECTOR                   : (&str, &str) = ("app", "kubesleeper");
+    pub static KUBESLEEPER_NAMESPACE            : std::sync::OnceLock<String> = std::sync::OnceLock::new();
 }
 
 pub mod error {
@@ -35,6 +37,12 @@ pub mod error {
         #[allow(dead_code)]
         #[error("StateKindError : {0}")]
         StateKindError(String),
+        
+        #[error("No kubesleeper deployment found during deploy parsing.")]
+        MissingKubesleeperDeploy,
+
+        #[error("Found {0} kubesleeper deployments during deploy parsing.")]
+        TooMuchKubesleeperDeploy(usize),
     }
 
     #[derive(Debug, thiserror::Error)]
@@ -47,7 +55,7 @@ pub mod error {
             value: String,
         },
 
-        #[error("Resource '{id}' : Failed to parse value '{value}' : {error}.")]
+        #[error("Resource '{id}' : Failed to parse value '{value}' : {error}")]
         ParseFailed {
             /// Resource identifier (like "namespace/name").
             id: String,
@@ -57,4 +65,9 @@ pub mod error {
             error: String,
         },
     }
+}
+
+pub async fn set_kubesleeper_namespace() -> Result<(), error::Controller>{
+    constantes::KUBESLEEPER_NAMESPACE.set(Deploy::get_kubesleeper().await?.namespace).unwrap();
+    Ok(())
 }

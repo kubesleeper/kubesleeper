@@ -12,6 +12,7 @@ use std::fmt;
 
 #[derive(Serialize)]
 pub struct Deploy {
+    pub uid: String,
     pub name: String,
     pub namespace: String,
     pub replicas: i32,
@@ -26,6 +27,12 @@ impl TryFrom<&Deployment> for Deploy {
 
     fn try_from(deploy: &Deployment) -> std::result::Result<Self, Self::Error> {
         // --- explicit data
+        let uid =
+            ResourceExt::uid(deploy).ok_or(error::ResourceParse::MissingValue {
+                id: format!("?"),
+                value: "uid".to_string(),
+            })?;
+
         let name = deploy
             .name()
             .ok_or(error::ResourceParse::MissingValue {
@@ -87,6 +94,7 @@ impl TryFrom<&Deployment> for Deploy {
             })
             .transpose()?;
         Ok(Deploy {
+            uid,
             name,
             namespace,
             replicas,
@@ -96,10 +104,15 @@ impl TryFrom<&Deployment> for Deploy {
     }
 }
 impl Deploy {
-    async fn get_k8s_api(namespace: &str) -> Result<Api<Deployment>, error::Controller> {
+    async fn get_k8s_api(namespace: Option<&str>) -> Result<Api<Deployment>, error::Controller> {
         let client = Client::try_default().await?;
 
-        let deployments: Api<Deployment> = Api::namespaced(client, namespace);
+        let deployments: Api<Deployment> = if let Some(namespace_name) = namespace {
+            Api::namespaced(client, namespace_name)
+        } else {
+            Api::all(client)
+        };
+
         return Ok(deployments);
     }
 
@@ -119,7 +132,7 @@ impl Deploy {
         });
         let params = PatchParams::default();
         let patch = Patch::Merge(&patch);
-        Deploy::get_k8s_api(&self.namespace)
+        Deploy::get_k8s_api(Some(&self.namespace))
             .await?
             .patch(&self.name, &params, &patch)
             .await?;
@@ -165,13 +178,23 @@ impl Deploy {
         self.store_state = Some(StateKind::Asleep);
         self.patch().await
     }
-
-    pub async fn get_all(namespace: &str) -> Result<Vec<Deploy>, error::Controller> {
-        Deploy::get_k8s_api(namespace)
+    async fn get_all_k8s_deployments(namespace: Option<&str>) -> Result<Vec<Deployment>, error::Controller> {
+        Ok(Deploy::get_k8s_api(namespace)
             .await?
             .list(&ListParams::default())
             .await?
-            .iter()
+            .into_iter()
+            .collect())
+            // .map(|deploy| {
+            //     match Deploy::try_from(deploy) {
+            //     Ok(d) => Ok(d),
+            //     Err(e) => return Err(e),
+            // }})
+    }
+
+    pub async fn get_kubesleeper() -> Result<Deploy, error::Controller> {
+        let ks_deploys: Vec<Deployment> = Self::get_all_k8s_deployments(None).await?
+            .into_iter()
             .filter(|deploy| {
                 deploy
                     .metadata
@@ -179,14 +202,37 @@ impl Deploy {
                     .as_ref()
                     .unwrap_or(&BTreeMap::new())
                     .get(KUBESLEEPER_SERVER_LABEL_KEY)
-                    != Some(&KUBESLEEPER_SERVER_LABEL_VALUE.to_string())
-            }) // TODO verify that kubesleeper label is found otherwise we kill it ad vitam aeternam
-            .map(|d| Deploy::try_from(d))
-            .collect()
+                    == Some(&KUBESLEEPER_SERVER_LABEL_VALUE.to_string())
+            })
+            .collect();
+
+        match ks_deploys.len() {
+            0 => Err(error::Controller::MissingKubesleeperDeploy),
+            1 => Self::try_from(ks_deploys
+                .get(0)
+                .expect("Deploys should logically have exactly 1 element at this point")),
+            x => Err(error::Controller::TooMuchKubesleeperDeploy(x)),
+        }
+    }
+
+    pub async fn get_all_target() -> Result<Vec<Deploy>, error::Controller> {
+        let deploys = Self::get_all_k8s_deployments(Some(KUBESLEEPER_NAMESPACE.get().unwrap()))
+            .await?
+            .iter()
+            .map(|deploy| {
+                Self::try_from(deploy)
+            })
+            .collect::<Result<Vec<Deploy>, error::Controller>>()?;
+        let ks_deploy = Self::get_kubesleeper().await?;
+
+        Ok(deploys
+            .into_iter()
+            .filter(|deploy| deploy.uid != ks_deploy.uid)
+            .collect())
     }
 
     pub async fn change_all_state(state: StateKind) -> Result<(), error::Controller> {
-        let deploys = Deploy::get_all("ks").await?;
+        let deploys = Deploy::get_all_target().await?;
 
         for mut deploy in deploys {
             match state {
