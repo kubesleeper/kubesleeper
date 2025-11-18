@@ -14,6 +14,7 @@ use crate::core::server::error::ServerError;
 use crate::core::state::state::create_schedule;
 use crate::core::state::state_kind::StateKind;
 use crate::core::{controller::deploy::Deploy, ingress::IngressType, server};
+use crate::core::controller::set_kubesleeper_namespace;
 
 #[derive(Parser)]
 #[command(name = "kubesleeper", version)]
@@ -85,6 +86,7 @@ enum Error {
 
 #[tokio::main]
 async fn process() -> Result<(), Error> {
+    set_kubesleeper_namespace().await?;
     let cli = Cli::parse();
 
     match cli.command {
@@ -93,7 +95,7 @@ async fn process() -> Result<(), Error> {
             server::start().await?; // TODO: use ? by adding the correct error type in Error struct
         }
         Commands::Status => {
-            let deploys = crate::core::controller::deploy::Deploy::get_all("ks").await?;
+            let deploys = crate::core::controller::deploy::Deploy::get_all_target().await?;
 
             let services = crate::core::controller::service::Service::get_all("ks").await?;
 
@@ -146,7 +148,7 @@ async fn process() -> Result<(), Error> {
                 let missing_targert_message = format!("'{}' of namespace '{}' not found",rsc_name,rsc_ns);
                 match subcmd {
                     Manual::SetDeploy { .. } => {
-                        if let Some(deploy) = Deploy::get_all(rsc_ns)
+                        if let Some(deploy) = Deploy::get_all_target()
                             .await?
                             .iter_mut()
                             .find(|x| x.name == rsc_name)
@@ -160,7 +162,7 @@ async fn process() -> Result<(), Error> {
                         }
                     },
                     Manual::SetService { .. } => {
-                        if let Some(service) = Deploy::get_all(rsc_ns)
+                        if let Some(service) = Deploy::get_all_target()
                             .await?
                             .iter_mut()
                             .find(|x| x.name == rsc_name)
