@@ -1,3 +1,5 @@
+use tracing::info;
+
 use crate::core::controller::deploy::Deploy;
 
 pub mod annotations;
@@ -69,5 +71,6 @@ pub mod error {
 
 pub async fn set_kubesleeper_namespace() -> Result<(), error::Controller>{
     constantes::KUBESLEEPER_NAMESPACE.set(Deploy::get_kubesleeper().await?.namespace).unwrap();
+    info!("kubesleeper working namespace detected as {}",constantes::KUBESLEEPER_NAMESPACE.get().unwrap());
     Ok(())
 }

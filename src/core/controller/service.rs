@@ -1,20 +1,25 @@
-use crate::core::controller::annotations::Annotations;
-use crate::core::controller::constantes::*;
+use crate::core::controller::{annotations::Annotations, constantes::*};
 
 use crate::core::state::state_kind::StateKind;
 
 use super::error;
-use k8s_openapi::api::core::v1::Service as K8sService;
-use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
-use kube::api::{ListParams, Patch, PatchParams};
-use kube::runtime::reflector::Lookup;
-use kube::{Api, Client, ResourceExt};
+use k8s_openapi::{
+    api::core::v1::Service as K8sService, apimachinery::pkg::util::intstr::IntOrString,
+};
+use kube::{
+    Api, Client, ResourceExt,
+    api::{ListParams, Patch, PatchParams},
+    runtime::reflector::Lookup,
+};
 use rocket::serde::Deserialize;
 use serde::Serialize;
-use std::collections::{BTreeMap, HashMap};
-use std::fmt;
-use std::fmt::{Display, Formatter};
-use std::string::ToString;
+use tracing::{debug, info};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt,
+    fmt::{Display, Formatter},
+    string::ToString,
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServicePort {
@@ -23,19 +28,19 @@ pub struct ServicePort {
     pub target_port: IntOrString,
 }
 
-impl Display for ServicePort {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{{port: {}, target_port: {}}}",
-            self.port,
-            match &self.target_port {
-                IntOrString::Int(target_port) => target_port.to_string(),
-                IntOrString::String(target_port) => format!("\"{}\"", target_port),
-            }
-        )
-    }
-}
+// impl Display for ServicePort {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+//         write!(
+//             f,
+//             "{{port: {}, target_port: {}}}",
+//             self.port,
+//             match &self.target_port {
+//                 IntOrString::Int(target_port) => target_port.to_string(),
+//                 IntOrString::String(target_port) => format!("\"{}\"", target_port),
+//             }
+//         )
+//     }
+// }
 
 #[derive(Debug, Serialize)]
 pub struct Service {
@@ -104,8 +109,9 @@ impl Service {
 impl Service {
     pub async fn wake(&mut self) -> Result<(), error::Controller> {
         if self.store_state == Some(StateKind::Awake) {
-            println!(
-                "State already marked as '{}', skipping wake action",
+            debug!(
+                "State of service '{}/{}' already marked as '{}', skipping wake action",
+                self.name, self.namespace,
                 StateKind::Awake.to_string()
             );
             return Ok(());
@@ -140,9 +146,10 @@ impl Service {
 
     pub async fn sleep(&mut self) -> Result<(), error::Controller> {
         if self.store_state == Some(StateKind::Asleep) {
-            println!(
-                "State already marked as '{}', skipping sleep action",
-                StateKind::Asleep.to_string()
+            debug!(
+                "State of service '{}/{}' already marked as '{}', skipping wake action",
+                self.name, self.namespace,
+                StateKind::Awake.to_string()
             );
             return Ok(());
         }
@@ -165,7 +172,7 @@ impl Service {
         self.patch().await
     }
 
-    pub async fn get_all(namespace: &str) -> Result<Vec<Service>, error::Controller> {
+    pub async fn get_all_target(namespace: &str) -> Result<Vec<Service>, error::Controller> {
         Service::get_k8s_api(namespace)
             .await?
             .list(&ListParams::default())
@@ -176,9 +183,10 @@ impl Service {
     }
 
     pub async fn change_all_state(state: StateKind) -> Result<(), error::Controller> {
-        let services = Service::get_all("ks").await?;
-
+        let services = Service::get_all_target("ks").await?;
+        info!("Set {} services {:?}",services.len(),state);
         for mut service in services {
+            debug!("Set service {}/{} {:?}",service.name, service.namespace,state);
             match state {
                 StateKind::Asleep => service.sleep().await?,
                 StateKind::Awake => service.wake().await?,

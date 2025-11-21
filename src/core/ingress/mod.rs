@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use k8s_openapi::api::core::v1::Pod;
 use kube::{ResourceExt, runtime::reflector::Lookup};
 use reqwest;
+use tracing::{debug, info};
 
 use crate::core::ingress::error::IngressError;
 
@@ -61,6 +62,7 @@ pub trait IngressType {
     ///
     /// Return a HashMap of 'service name' : { 'metric po': 'nb connection' }
     async fn get_metrics() -> Result<HashMap<String, HashMap<String, u64>>, IngressError> {
+        debug!("Get metrics from traefik ingress");
         let ingress_pods = Self::get_ingress_pods().await?;
         let mut res: HashMap<String, HashMap<String, u64>> = HashMap::new();
 
