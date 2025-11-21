@@ -1,9 +1,7 @@
-use crate::core::ingress::IngressType;
-use crate::core::ingress::error::IngressError;
+use crate::core::ingress::{IngressType, error::IngressError};
 
 use k8s_openapi::api::core::v1::Pod;
-use kube::api::ListParams;
-use kube::{Api, Client, Config};
+use kube::{Api, Client, Config, api::ListParams};
 use regex::Regex;
 use std::collections::HashMap;
 
