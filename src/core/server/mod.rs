@@ -1,5 +1,5 @@
 use rocket::{fs::FileServer, routes};
-use tracing::{info, instrument};
+use tracing::{info};
 
 use crate::core::server::routes::{apps, static_catcher, wait};
 
@@ -15,12 +15,11 @@ pub mod error {
     }
 }
 
-
 pub async fn start() -> Result<(), error::ServerError> {
     info!("Starting server");
     let config = rocket::Config::figment()
-            .merge(("port", 8000))
-            .merge(("log_level", rocket::log::LogLevel::Critical));
+        .merge(("port", 8000))
+        .merge(("log_level", rocket::log::LogLevel::Critical));
     rocket::build()
         .configure(config)
         .mount("/", routes![apps])
@@ -28,10 +27,7 @@ pub async fn start() -> Result<(), error::ServerError> {
             KUBESLEEPER_REST_PATH_PREFIX.to_string() + "/static",
             FileServer::from("static"),
         )
-        .mount(
-            KUBESLEEPER_REST_PATH_PREFIX,
-            routes![wait, static_catcher],
-        )
+        .mount(KUBESLEEPER_REST_PATH_PREFIX, routes![wait, static_catcher])
         .launch()
         .await?;
     Ok(())

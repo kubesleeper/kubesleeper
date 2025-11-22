@@ -39,7 +39,7 @@ pub mod error {
         #[allow(dead_code)]
         #[error("StateKindError : {0}")]
         StateKindError(String),
-        
+
         #[error("No kubesleeper deployment found during deploy parsing.")]
         MissingKubesleeperDeploy,
 
@@ -69,8 +69,13 @@ pub mod error {
     }
 }
 
-pub async fn set_kubesleeper_namespace() -> Result<(), error::Controller>{
-    constantes::KUBESLEEPER_NAMESPACE.set(Deploy::get_kubesleeper().await?.namespace).unwrap();
-    info!("kubesleeper working namespace detected as {}",constantes::KUBESLEEPER_NAMESPACE.get().unwrap());
+pub async fn set_kubesleeper_namespace() -> Result<(), error::Controller> {
+    constantes::KUBESLEEPER_NAMESPACE
+        .set(Deploy::get_kubesleeper().await?.namespace)
+        .unwrap();
+    info!(
+        "kubesleeper working namespace detected as {}",
+        constantes::KUBESLEEPER_NAMESPACE.get().unwrap()
+    );
     Ok(())
 }

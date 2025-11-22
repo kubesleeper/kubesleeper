@@ -11,7 +11,6 @@ use crate::core::{
     controller,
     controller::{
         deploy::Deploy,
-        error::{self, Controller},
         service::Service,
         set_kubesleeper_namespace,
     },
@@ -22,8 +21,6 @@ use crate::core::{
     state::{state::create_schedule, state_kind::StateKind},
 };
 use tracing;
-
-const LOG_FILE_PATH: &str = "kubesleeper.log";
 
 #[derive(Parser)]
 #[command(name = "kubesleeper", version)]

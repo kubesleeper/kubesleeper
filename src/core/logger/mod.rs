@@ -1,5 +1,5 @@
 use tracing::level_filters::LevelFilter;
-use tracing_subscriber::{EnvFilter, Layer, fmt, layer::SubscriberExt};
+use tracing_subscriber::{ fmt, layer::SubscriberExt};
 
 pub static VERBOSE_MODE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 pub static HUMAN_READABLE_MODE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
@@ -18,8 +18,6 @@ pub mod error {
     }
 }
 
-
-
 pub fn init_logger() -> Result<(), error::Logger> {
     let filter = tracing_subscriber::EnvFilter::builder()
         .with_default_directive(LevelFilter::OFF.into())
@@ -37,7 +35,6 @@ pub fn init_logger() -> Result<(), error::Logger> {
             )
             .parse()?,
         );
-
 
     if *HUMAN_READABLE_MODE.get().unwrap_or(&false) {
         let stdout_layer = fmt::layer()
