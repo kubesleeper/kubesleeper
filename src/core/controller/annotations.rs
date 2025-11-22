@@ -6,7 +6,6 @@ use crate::core::controller::constantes::*;
 pub struct Annotations(HashMap<String, String>);
 
 impl Annotations {
-
     pub fn get(&self, key: &str) -> Option<&str> {
         self.0
             .get(&(KUBESLEEPER_ANNOTATION_PREFIX.to_string() + key))

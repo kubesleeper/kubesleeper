@@ -5,8 +5,7 @@ use kube::{
     runtime::reflector::Lookup,
 };
 use serde::Serialize;
-use tracing::{debug, info, trace};
-use uuid::Uuid;
+use tracing::{debug, info};
 
 use crate::core::{
     controller::{constantes::*, error},
@@ -31,11 +30,10 @@ impl TryFrom<&Deployment> for Deploy {
 
     fn try_from(deploy: &Deployment) -> std::result::Result<Self, Self::Error> {
         // --- explicit data
-        let uid =
-            ResourceExt::uid(deploy).ok_or(error::ResourceParse::MissingValue {
-                id: format!("?"),
-                value: "uid".to_string(),
-            })?;
+        let uid = ResourceExt::uid(deploy).ok_or(error::ResourceParse::MissingValue {
+            id: format!("?"),
+            value: "uid".to_string(),
+        })?;
 
         let name = deploy
             .name()
@@ -150,7 +148,8 @@ impl Deploy {
         if self.store_state == Some(StateKind::Awake) {
             debug!(
                 "State of deployment '{}/{}' already marked as '{}', skipping sleep action",
-                self.name, self.namespace,
+                self.name,
+                self.namespace,
                 StateKind::Awake.to_string()
             );
             return Ok(());
@@ -173,7 +172,8 @@ impl Deploy {
         if self.store_state == Some(StateKind::Asleep) {
             debug!(
                 "State of deployment '{}/{}' already marked as '{}', skipping sleep action",
-                self.name, self.namespace,
+                self.name,
+                self.namespace,
                 StateKind::Asleep.to_string()
             );
             return Ok(());
@@ -184,7 +184,9 @@ impl Deploy {
         self.store_state = Some(StateKind::Asleep);
         self.patch().await
     }
-    async fn get_all_k8s_deployments(namespace: Option<&str>) -> Result<Vec<Deployment>, error::Controller> {
+    async fn get_all_k8s_deployments(
+        namespace: Option<&str>,
+    ) -> Result<Vec<Deployment>, error::Controller> {
         Ok(Deploy::get_k8s_api(namespace)
             .await?
             .list(&ListParams::default())
@@ -195,7 +197,8 @@ impl Deploy {
 
     pub async fn get_kubesleeper() -> Result<Deploy, error::Controller> {
         debug!("Fetching kubesleeper deployment");
-        let ks_deploys: Vec<Deployment> = Self::get_all_k8s_deployments(None).await?
+        let ks_deploys: Vec<Deployment> = Self::get_all_k8s_deployments(None)
+            .await?
             .into_iter()
             .filter(|deploy| {
                 deploy
@@ -210,25 +213,26 @@ impl Deploy {
         match ks_deploys.len() {
             0 => Err(error::Controller::MissingKubesleeperDeploy),
             1 => {
-                let ks = Self::try_from(ks_deploys
-                    .get(0)
-                    .expect("Deploys should logically have exactly 1 element at this point")
+                let ks = Self::try_from(
+                    ks_deploys
+                        .get(0)
+                        .expect("Deploys should logically have exactly 1 element at this point"),
                 )?;
-                debug!("kubesleeper deployment found : {}/{} ({})",ks.name,ks.namespace,ks.uid);
+                debug!(
+                    "kubesleeper deployment found : {}/{} ({})",
+                    ks.name, ks.namespace, ks.uid
+                );
                 Ok(ks)
-            },
+            }
             x => Err(error::Controller::TooMuchKubesleeperDeploy(x)),
         }
-        
     }
 
     pub async fn get_all_target() -> Result<Vec<Deploy>, error::Controller> {
         let deploys = Self::get_all_k8s_deployments(Some(KUBESLEEPER_NAMESPACE.get().unwrap()))
             .await?
             .iter()
-            .map(|deploy| {
-                Self::try_from(deploy)
-            })
+            .map(|deploy| Self::try_from(deploy))
             .collect::<Result<Vec<Deploy>, error::Controller>>()?;
         let ks_deploy = Self::get_kubesleeper().await?;
 
@@ -240,9 +244,12 @@ impl Deploy {
 
     pub async fn change_all_state(state: StateKind) -> Result<(), error::Controller> {
         let deploys = Deploy::get_all_target().await?;
-        info!("Set {} deployments {:?}",deploys.len(),state);
+        info!("Set {} deployments {:?}", deploys.len(), state);
         for mut deploy in deploys {
-            debug!("Set deployment {}/{} {:?}",deploy.name, deploy.namespace,state);
+            debug!(
+                "Set deployment {}/{} {:?}",
+                deploy.name, deploy.namespace, state
+            );
             match state {
                 StateKind::Asleep => deploy.sleep().await?,
                 StateKind::Awake => deploy.wake().await?,

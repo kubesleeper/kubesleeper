@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use k8s_openapi::api::core::v1::Pod;
 use kube::{ResourceExt, runtime::reflector::Lookup};
 use reqwest;
-use tracing::{debug, info};
+use tracing::{debug};
 
 use crate::core::ingress::error::IngressError;
 

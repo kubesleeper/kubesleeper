@@ -48,8 +48,7 @@ impl State {
         let state = STATE
             .lock()
             .map_err(|e| StateError::LockError(format!("{e:?}")))?;
-        
-        
+
         for (service_id, metric) in metrics_data {
             if let Some(stored_metric) = state.metrics.get(service_id) {
                 // Service already exists in the state,
@@ -62,10 +61,13 @@ impl State {
                         debug!("Ingress pod with uid '{ingress_pod_uid}' is new > Activity ");
                         return Ok(Notification::new(NotificationKind::Activity));
                     }
-                    
-                    let nb_new_connection = stored_total_connection.map_or(0, |stored| stored - total_connection);
+
+                    let nb_new_connection =
+                        stored_total_connection.map_or(0, |stored| stored - total_connection);
                     if nb_new_connection > 0 {
-                        debug!("Ingress pod with uid '{ingress_pod_uid}' has proceed {nb_new_connection} new connection > Activity ");
+                        debug!(
+                            "Ingress pod with uid '{ingress_pod_uid}' has proceed {nb_new_connection} new connection > Activity "
+                        );
                         return Ok(Notification::new(NotificationKind::Activity));
                     }
                 }
@@ -84,19 +86,19 @@ impl State {
     pub async fn update_from_notification(notification: Notification) -> Result<(), StateError> {
         let mut action: Option<StateKind> = None;
 
-        { // explaination of the error if remove this scoped block
+        {
+            // explaination of the error if remove this scoped block
             debug!("Update state from Notification");
             let mut state = STATE
                 .lock()
                 .map_err(|e| StateError::LockError(format!("{e:?}")))?;
-            
-                
+
             match (&state.since.kind, &notification.kind) {
                 (NotificationKind::Activity, NotificationKind::Activity) => {
-                    info!("State do not change > {:?}",&state.since.kind);
-                },
+                    info!("State do not change > {:?}", &state.since.kind);
+                }
                 (NotificationKind::Activity, NotificationKind::NoActivity) => {
-                    info!("State change > {:?}",&state.since.kind);
+                    info!("State change > {:?}", &state.since.kind);
                     state.since = notification; // new state kind since this new notification
                 }
                 (NotificationKind::NoActivity, NotificationKind::NoActivity) => {
@@ -105,12 +107,14 @@ impl State {
                         && state.kind != StateKind::Asleep
                     {
                         // The application has been in sleepiness mode for too long; it must set asleep.
-                        debug!("Sleepiness duration exceeded: maximum sleepiness duration is {MAX_SLEEPINESS_DURATION:?}s, but the state was in this condition {sleepiness_duration:?}s.");
+                        debug!(
+                            "Sleepiness duration exceeded: maximum sleepiness duration is {MAX_SLEEPINESS_DURATION:?}s, but the state was in this condition {sleepiness_duration:?}s."
+                        );
                         info!("State change > Asleep");
                         state.kind = StateKind::Asleep;
                         action = Some(StateKind::Asleep);
                     }
-                    info!("State do not change > {:?}",&state.since.kind);
+                    info!("State do not change > {:?}", &state.since.kind);
                 }
                 (NotificationKind::NoActivity, NotificationKind::Activity) => {
                     // The application has received a connection but is asleep, must be waked up.
@@ -135,7 +139,7 @@ impl State {
                 debug!("Making all Service 'Awake'");
                 Service::change_all_state(StateKind::Awake).await?;
             }
-            None => {},
+            None => {}
         };
         Ok(())
     }
@@ -174,7 +178,7 @@ async fn process(uuid: Uuid) {
 
 pub async fn create_schedule() -> JobScheduler {
     let sched = JobScheduler::new().await.unwrap();
-    
+
     sched
         .add(
             Job::new_async("1/5 * * * * *", |uuid, mut l| {

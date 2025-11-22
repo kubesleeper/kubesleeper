@@ -5,7 +5,7 @@ use rocket::{
     http::{ContentType, Status},
     response::{Redirect, Responder, Response},
 };
-use tracing::{info, instrument, warn};
+use tracing::{info, instrument};
 
 use std::{
     io::Cursor,
@@ -62,7 +62,11 @@ impl<'r> Responder<'r, 'static> for AppResponse {
 #[get("/static/<path..>")]
 #[instrument(name = "server", level = "info")]
 pub async fn static_catcher(path: PathBuf) -> Status {
-    info!("GET {}/static/{} 404",KUBESLEEPER_REST_PATH_PREFIX,path.to_string_lossy());
+    info!(
+        "GET {}/static/{} 404",
+        KUBESLEEPER_REST_PATH_PREFIX,
+        path.to_string_lossy()
+    );
     Status::NotFound
 }
 
@@ -74,7 +78,6 @@ pub async fn wait() -> Option<NamedFile> {
     NamedFile::open(Path::new("static/waiting.html")).await.ok()
 }
 
-
 /// catch all route and redirect to /ks/wait
 #[get("/<path..>")]
 #[instrument(name = "server", level = "info")]
@@ -82,7 +85,7 @@ pub async fn apps(path: PathBuf) -> AppResponse {
     if path.starts_with(KUBESLEEPER_REST_PATH_PREFIX) {
         return AppResponse::Ignored;
     };
-    
+
     info!("GET /{}", path.to_string_lossy());
 
     let update =

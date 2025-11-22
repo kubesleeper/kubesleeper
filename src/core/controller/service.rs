@@ -13,13 +13,12 @@ use kube::{
 };
 use rocket::serde::Deserialize;
 use serde::Serialize;
-use tracing::{debug, info};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt,
-    fmt::{Display, Formatter},
     string::ToString,
 };
+use tracing::{debug, info};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ServicePort {
@@ -28,19 +27,6 @@ pub struct ServicePort {
     pub target_port: IntOrString,
 }
 
-// impl Display for ServicePort {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-//         write!(
-//             f,
-//             "{{port: {}, target_port: {}}}",
-//             self.port,
-//             match &self.target_port {
-//                 IntOrString::Int(target_port) => target_port.to_string(),
-//                 IntOrString::String(target_port) => format!("\"{}\"", target_port),
-//             }
-//         )
-//     }
-// }
 
 #[derive(Debug, Serialize)]
 pub struct Service {
@@ -111,7 +97,8 @@ impl Service {
         if self.store_state == Some(StateKind::Awake) {
             debug!(
                 "State of service '{}/{}' already marked as '{}', skipping wake action",
-                self.name, self.namespace,
+                self.name,
+                self.namespace,
                 StateKind::Awake.to_string()
             );
             return Ok(());
@@ -148,7 +135,8 @@ impl Service {
         if self.store_state == Some(StateKind::Asleep) {
             debug!(
                 "State of service '{}/{}' already marked as '{}', skipping wake action",
-                self.name, self.namespace,
+                self.name,
+                self.namespace,
                 StateKind::Awake.to_string()
             );
             return Ok(());
@@ -184,9 +172,12 @@ impl Service {
 
     pub async fn change_all_state(state: StateKind) -> Result<(), error::Controller> {
         let services = Service::get_all_target("ks").await?;
-        info!("Set {} services {:?}",services.len(),state);
+        info!("Set {} services {:?}", services.len(), state);
         for mut service in services {
-            debug!("Set service {}/{} {:?}",service.name, service.namespace,state);
+            debug!(
+                "Set service {}/{} {:?}",
+                service.name, service.namespace, state
+            );
             match state {
                 StateKind::Asleep => service.sleep().await?,
                 StateKind::Awake => service.wake().await?,
