@@ -13,6 +13,8 @@
 
 ## Install
 
+## Documentation
+
 ## Contributing
 
 Contributions are welcome! Whether it’s a bug report, a new feature, an improvement to the documentation, or feedback about the project, we’d love to hear from you.
@@ -25,14 +27,15 @@ Contributions are welcome! Whether it’s a bug report, a new feature, an improv
 Please make sure your contribution follows our coding style and includes tests when relevant.
 If you’re unsure about anything, feel free to open an issue — we’re happy to help!
 
-## Who We Are
+## Who we are
 
+<div align="center">
 <table>
   <tr>
     <td align="center">
       <a href="https://github.com/eloi-menaud">
-        <img src="https://github.com/eloi-menaud.png" width="80" style="border-radius: 50%" /><br>
-        <b>Eloi M.</b>
+        <img src="https://github.com/eloi-menaud.png" width="80" style="border-radius:50%;" alt="Eloi"/><br>
+        <strong>Eloi M.</strong>
       </a>
     </td>
     <td align="center">
@@ -61,6 +64,7 @@ If you’re unsure about anything, feel free to open an issue — we’re happy 
     </td>
   </tr>
 </table>
+</div>
 
 ## License
 
