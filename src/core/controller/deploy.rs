@@ -1,14 +1,18 @@
 use k8s_openapi::api::apps::v1::Deployment;
-use kube::api::{ListParams, Patch, PatchParams};
-use kube::runtime::reflector::Lookup;
-use kube::{Api, Client, ResourceExt};
+use kube::{
+    Api, Client, ResourceExt,
+    api::{ListParams, Patch, PatchParams},
+    runtime::reflector::Lookup,
+};
 use serde::Serialize;
+use tracing::{debug, info, trace};
+use uuid::Uuid;
 
-use crate::core::controller::constantes::*;
-use crate::core::controller::error;
-use crate::core::state::state_kind::StateKind;
-use std::collections::BTreeMap;
-use std::fmt;
+use crate::core::{
+    controller::{constantes::*, error},
+    state::state_kind::StateKind,
+};
+use std::{collections::BTreeMap, fmt};
 
 #[derive(Serialize)]
 pub struct Deploy {
@@ -144,8 +148,9 @@ impl Deploy {
 impl Deploy {
     pub async fn wake(&mut self) -> Result<(), error::Controller> {
         if self.store_state == Some(StateKind::Awake) {
-            println!(
-                "State already marked as '{}', skipping wake action",
+            debug!(
+                "State of deployment '{}/{}' already marked as '{}', skipping sleep action",
+                self.name, self.namespace,
                 StateKind::Awake.to_string()
             );
             return Ok(());
@@ -166,8 +171,9 @@ impl Deploy {
 
     pub async fn sleep(&mut self) -> Result<(), error::Controller> {
         if self.store_state == Some(StateKind::Asleep) {
-            println!(
-                "State already marked as '{}', skipping sleep action",
+            debug!(
+                "State of deployment '{}/{}' already marked as '{}', skipping sleep action",
+                self.name, self.namespace,
                 StateKind::Asleep.to_string()
             );
             return Ok(());
@@ -185,14 +191,10 @@ impl Deploy {
             .await?
             .into_iter()
             .collect())
-            // .map(|deploy| {
-            //     match Deploy::try_from(deploy) {
-            //     Ok(d) => Ok(d),
-            //     Err(e) => return Err(e),
-            // }})
     }
 
     pub async fn get_kubesleeper() -> Result<Deploy, error::Controller> {
+        debug!("Fetching kubesleeper deployment");
         let ks_deploys: Vec<Deployment> = Self::get_all_k8s_deployments(None).await?
             .into_iter()
             .filter(|deploy| {
@@ -205,14 +207,19 @@ impl Deploy {
                     == Some(&KUBESLEEPER_SERVER_LABEL_VALUE.to_string())
             })
             .collect();
-
         match ks_deploys.len() {
             0 => Err(error::Controller::MissingKubesleeperDeploy),
-            1 => Self::try_from(ks_deploys
-                .get(0)
-                .expect("Deploys should logically have exactly 1 element at this point")),
+            1 => {
+                let ks = Self::try_from(ks_deploys
+                    .get(0)
+                    .expect("Deploys should logically have exactly 1 element at this point")
+                )?;
+                debug!("kubesleeper deployment found : {}/{} ({})",ks.name,ks.namespace,ks.uid);
+                Ok(ks)
+            },
             x => Err(error::Controller::TooMuchKubesleeperDeploy(x)),
         }
+        
     }
 
     pub async fn get_all_target() -> Result<Vec<Deploy>, error::Controller> {
@@ -233,8 +240,9 @@ impl Deploy {
 
     pub async fn change_all_state(state: StateKind) -> Result<(), error::Controller> {
         let deploys = Deploy::get_all_target().await?;
-
+        info!("Set {} deployments {:?}",deploys.len(),state);
         for mut deploy in deploys {
+            debug!("Set deployment {}/{} {:?}",deploy.name, deploy.namespace,state);
             match state {
                 StateKind::Asleep => deploy.sleep().await?,
                 StateKind::Awake => deploy.wake().await?,

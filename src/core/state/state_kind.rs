@@ -6,7 +6,7 @@ use serde::Serialize;
 use super::StateError;
 
 // ValueEnum for allowing Clap to take StateKind as argument type
-#[derive(Eq, PartialEq, Debug, Serialize, Clone,ValueEnum,Copy)]
+#[derive(Eq, PartialEq, Debug, Serialize, Clone, ValueEnum, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum StateKind {
     Asleep,
