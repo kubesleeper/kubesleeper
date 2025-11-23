@@ -1,4 +1,3 @@
-<br><br>
 <div align="center">
 <img src="./doc/rsc/logo-anim-rounded.gif" width="300">
 <h1>kubesleeper</h1>
@@ -11,11 +10,35 @@
   </a>
 </div>
 
-<br><br>
+---
 
-### [📚 Documentation](http://kubesleeper.com)
+**Documentation**: [https://kubesleeper.com/](https://kubesleeper.com/)
 
-<br><br>
+**Source Code**: [https://github.com/kubesleeper/kubesleeper](https://github.com/kubesleeper/kubesleeper)
+
+---
+Kubesleeper is a "scale-to-zero" Kubernetes manager. It automatically reduces resource usage based on load, helping you cut infrastructure costs. Concretely, if an application is unused for some time, kubesleeper will automatically shut it down and restart it when a new user tries to access it.
+
+Advantages of kubesleeper:
+- **Lightweight** – Runs as a single tiny pod, regardless of your cluster size.
+- **No Proxy Layer** – Directly interacts with the Kubernetes API; never intercepts or modifies your resources.
+- **Respects Your Scaling** – kubesleeper only turns resources on/off. Your own autoscaling rules and fine-grained logic remain untouched and active when resources are awake.
+- **Fully Configurable** – Designed to adapt to your environment, whatever it looks like.
+- **Safe by Design** – Performs checks before any action, avoids flapping, and never deletes or recreates resources.
+
+## Install
+
+Kubesleeper can be easily installed by ...
+
+For more precise information, check our [documentation](https://kubesleeper.com/install.html).
+
+## Basic usages
+
+More documentation can be found at [this link](http://kubesleeper.com).
+
+## Configuration
+
+More documentation can be found at [this link](http://kubesleeper.com).
 
 ## Contributing
 
@@ -70,4 +93,4 @@ If you’re unsure about anything, feel free to open an issue — we’re happy 
 
 ## License
 
-Code is under the [MIT License](LICENSE).
+Code and documentation are under the [MIT License](LICENSE).
