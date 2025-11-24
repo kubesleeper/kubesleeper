@@ -1,7 +1,8 @@
-<div align="center">
+<div align="center" style="border-radius:20px" >
 <img src="./doc/src/rsc/ks.gif" width="300">
 <h1>kubesleeper</h1>
-<p>A lite 'scale to zero' kubernetes manager</p>
+<i>let your cluster take naps</i>
+<p>A lightweight 'scale to zero' kubernetes manager</p>
   <!-- <a href="https://github.com/kubesleeper/kubesleeper/releases">
     <img src="https://img.shields.io/github/v/release/kubesleeper/kubesleeper?style=flat-square">
   </a> -->
@@ -25,7 +26,7 @@ Advantages of kubesleeper:
 - **Fully Configurable** – Designed to adapt to your environment, whatever it looks like.
 - **Safe by Design** – Performs checks before any action, avoids flapping, and never deletes or recreates resources.
 
----
+
 
 <br><br>
 
