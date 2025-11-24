@@ -12,5 +12,5 @@
 - [Helm](./config/helm.md)
 
 -----------
-
+[Contribute](./contribute.md)
 [Roadmap](./roadmap.md)

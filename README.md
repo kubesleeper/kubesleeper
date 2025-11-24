@@ -1,5 +1,5 @@
 <div align="center">
-<img src="./doc/rsc/logo-anim-rounded.gif" width="300">
+<img src="./doc/src/rsc/ks.gif" width="300">
 <h1>kubesleeper</h1>
 <p>A lite 'scale to zero' kubernetes manager</p>
   <!-- <a href="https://github.com/kubesleeper/kubesleeper/releases">
@@ -14,9 +14,8 @@
 
 **Documentation**: [https://kubesleeper.com/](https://kubesleeper.com/)
 
-**Source Code**: [https://github.com/kubesleeper/kubesleeper](https://github.com/kubesleeper/kubesleeper)
-
 ---
+
 Kubesleeper is a "scale-to-zero" Kubernetes manager. It automatically reduces resource usage based on load, helping you cut infrastructure costs. Concretely, if an application is unused for some time, kubesleeper will automatically shut it down and restart it when a new user tries to access it.
 
 Advantages of kubesleeper:
@@ -26,31 +25,9 @@ Advantages of kubesleeper:
 - **Fully Configurable** – Designed to adapt to your environment, whatever it looks like.
 - **Safe by Design** – Performs checks before any action, avoids flapping, and never deletes or recreates resources.
 
-## Install
+---
 
-Kubesleeper can be easily installed by ...
-
-For more precise information, check our [documentation](https://kubesleeper.com/install.html).
-
-## Basic usages
-
-More documentation can be found at [this link](http://kubesleeper.com).
-
-## Configuration
-
-More documentation can be found at [this link](http://kubesleeper.com).
-
-## Contributing
-
-Contributions are welcome! Whether it’s a bug report, a new feature, an improvement to the documentation, or feedback about the project, we’d love to hear from you.
-
-1. **Fork** the repository  
-2. **Create a new branch** (`git checkout -b feature/my-feature`)  
-3. **Commit** your changes with clear messages  
-4. **Open a Pull Request** explaining your work
-
-Please make sure your contribution follows our coding style and includes tests when relevant.
-If you’re unsure about anything, feel free to open an issue — we’re happy to help!
+<br><br>
 
 ## Who we are
 
