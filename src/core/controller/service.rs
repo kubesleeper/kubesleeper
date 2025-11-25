@@ -27,7 +27,6 @@ pub struct ServicePort {
     pub target_port: IntOrString,
 }
 
-
 #[derive(Debug, Serialize)]
 pub struct Service {
     pub name: String,

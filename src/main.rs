@@ -1,19 +1,17 @@
 extern crate rocket;
 mod core;
 
+use std::path::PathBuf;
 use std::process;
 
 use clap::{Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 use tokio_cron_scheduler::JobSchedulerError;
 
+use crate::core::config::config;
 use crate::core::{
     controller,
-    controller::{
-        deploy::Deploy,
-        service::Service,
-        set_kubesleeper_namespace,
-    },
+    controller::{deploy::Deploy, service::Service, set_kubesleeper_namespace},
     ingress::{IngressType, error::IngressError},
     logger::{self, HUMAN_READABLE_MODE, VERBOSE_MODE, init_logger},
     server,
@@ -35,6 +33,10 @@ struct Cli {
     #[arg(short, long)]
     /// Human readable mode for logging
     readable_log: bool,
+
+    #[arg(long, default_value = "./kubesleeper.yaml")]
+    /// Path to the kubesleeper YAML configuration file
+    config: PathBuf,
 }
 
 #[derive(Subcommand)]
@@ -97,12 +99,17 @@ enum Error {
 
     #[error(transparent)]
     LoggerError(#[from] logger::error::Logger),
+
+    #[error(transparent)]
+    ConfigError(#[from] config::ConfigError),
 }
 
 #[tokio::main]
 async fn process() -> Result<(), Error> {
-    set_kubesleeper_namespace().await?;
     let cli = Cli::parse();
+
+    let config = config::parse(PathBuf::from(cli.config))?;
+    println!("{config:?}");
 
     //logging setup
     VERBOSE_MODE
@@ -115,10 +122,12 @@ async fn process() -> Result<(), Error> {
 
     match cli.command {
         Commands::Start => {
+            set_kubesleeper_namespace().await?;
             server::start().await?;
             create_schedule().await.start().await?;
         }
         Commands::Status => {
+            set_kubesleeper_namespace().await?;
             let deploys = crate::core::controller::deploy::Deploy::get_all_target().await?;
 
             let services = crate::core::controller::service::Service::get_all_target("ks").await?;
@@ -161,6 +170,7 @@ async fn process() -> Result<(), Error> {
             // merge 2 cases to not have code duplication for splitting resource-name and namespace
             Manual::SetDeploy { resource_id, state }
             | Manual::SetService { resource_id, state } => {
+                set_kubesleeper_namespace().await?;
                 let (rsc_name, rsc_ns) =
                     if let Some((rsc_name, rsc_ns)) = resource_id.split_once('/') {
                         (rsc_name, rsc_ns)

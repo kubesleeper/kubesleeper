@@ -1,5 +1,5 @@
 use rocket::{fs::FileServer, routes};
-use tracing::{info};
+use tracing::info;
 
 use crate::core::server::routes::{apps, static_catcher, wait};
 

@@ -1,5 +1,5 @@
 use tracing::level_filters::LevelFilter;
-use tracing_subscriber::{ fmt, layer::SubscriberExt};
+use tracing_subscriber::{fmt, layer::SubscriberExt};
 
 pub static VERBOSE_MODE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 pub static HUMAN_READABLE_MODE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
