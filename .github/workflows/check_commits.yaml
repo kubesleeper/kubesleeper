@@ -25,6 +25,5 @@ jobs:
       
       - name: Checking commit format with c14
         run: |
-          git branch
           echo "checking all commit since the last one on 'mvp' branch"
-          ./c14 --target src --strict --from-merge-base mvp
+          ./c14 --target src --strict --from-merge-base origin/mvp
