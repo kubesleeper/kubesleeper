@@ -1,9 +1,10 @@
 # Summary
 
+- [Home](./home.md)
 
 # User guide
 
-- [What is it](./what_is_it.md)
+- [How it works](./how_it_works.md)
 - [Install](./install.md)
 
 # Config

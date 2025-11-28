@@ -1,0 +1,14 @@
+
+.left-buttons{
+    margin-right: 0px !important;
+}
+.right-buttons{
+    margin-left: 5px !important;
+}
+.menu-title{
+    display: none;
+}
+
+.fa-github{
+    font-size: 18px !important;
+}

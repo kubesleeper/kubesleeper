@@ -7,3 +7,8 @@ title = "Kubesleeper"
 [output.html]
 cname = "kubesleeper.com"
 git-repository-url = "https://github.com/kubesleeper/kubesleeper"
+additional-css = ["theme/custom.css"]
+
+[output.html.print]
+enable = false  
+
