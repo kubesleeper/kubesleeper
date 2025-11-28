@@ -2,8 +2,10 @@ use crate::core::config::config::ConfigError::IOError;
 use crate::core::ingress::error::IngressError;
 use crate::core::server::error::ServerError;
 use crate::core::{controller, logger};
+
 use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
+use std::io::ErrorKind;
 use std::num::NonZeroU16;
 use std::path::PathBuf;
 use tokio_cron_scheduler::JobSchedulerError;
@@ -81,8 +83,21 @@ pub fn parse(path: PathBuf) -> Result<Config, ConfigError> {
         e => Err(ConfigError::InvalidFileExtension(e.to_string())),
     }?;
 
-    let file = std::fs::File::open(&path).map_err(|err| ConfigError::IOError { path, err })?;
-    let config: Config = serde_yaml::from_reader(file)?;
+    let file = match std::fs::File::open(&path){
+        Ok(f) => Ok(Some(f)),
+        Err(e) => match e.kind() {
+                ErrorKind::NotFound => Ok(None), 
+                _ => Err(e), 
+        }
+    }.map_err(|err| ConfigError::IOError { path, err })?;
+    
+    let config: Config = if let Some(file) = file {
+        serde_yaml::from_reader(file)?
+    } else {
+        Config::default()
+    };
+    
+    
 
     Ok(config)
 }

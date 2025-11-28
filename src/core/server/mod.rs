@@ -18,8 +18,8 @@ pub mod error {
 pub async fn start() -> Result<(), error::ServerError> {
     info!("Starting server");
     let config = rocket::Config::figment()
-        .merge(("port", 8000))
-        .merge(("log_level", rocket::log::LogLevel::Critical));
+        .merge(("port", 8000));
+        // .merge(("log_level", rocket::log::LogLevel::Critical));
     rocket::build()
         .configure(config)
         .mount("/", routes![apps])

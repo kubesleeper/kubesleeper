@@ -1,5 +1,6 @@
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{fmt, layer::SubscriberExt};
+use std::io::{self, Write};
 
 pub static VERBOSE_MODE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 pub static HUMAN_READABLE_MODE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
@@ -37,35 +38,23 @@ pub fn init_logger() -> Result<(), error::Logger> {
         );
 
     if *HUMAN_READABLE_MODE.get().unwrap_or(&false) {
-        let stdout_layer = fmt::layer()
+        tracing_subscriber::FmtSubscriber::builder()
             .pretty()
-            .with_target(false)
-            .with_ansi(true)
-            .without_time()
-            .with_writer(std::io::stderr);
-
-        let subscriber = tracing_subscriber::Registry::default()
-            .with(filter)
-            .with(stdout_layer);
-        tracing::subscriber::set_global_default(subscriber)
+            .with_env_filter(filter)
+            .with_writer(io::stdout)
+            .with_target(true)
+            .with_level(true)
+            .init();
     } else {
-        let stdout_layer = fmt::layer()
-            .compact()
-            .with_target(false)
-            .with_ansi(true)
-            .with_writer(std::io::stderr);
-
-        let file_json_layer = fmt::layer()
+        
+        tracing_subscriber::fmt()
             .json()
-            .with_span_list(false)
-            .with_writer(std::io::stdout);
-
-        let subscriber = tracing_subscriber::Registry::default()
-            .with(filter)
-            .with(stdout_layer)
-            .with(file_json_layer);
-        tracing::subscriber::set_global_default(subscriber)
-    }?;
+            .with_env_filter(filter)
+            .with_writer(std::io::stderr)
+            .with_target(true)
+            .with_level(true)
+            .init();
+    };
 
     Ok(())
 }
