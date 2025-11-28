@@ -1,0 +1,24 @@
+name: Checking commit format
+
+on:
+  push:
+    branches-ignore:
+      - mvp
+
+jobs:
+  Doc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup C14
+        run: |
+          sudo apt-get install jq
+          
+          wget https://github.com/eloi-menaud/c14/releases/download/v1.0.0/c14
+          chmod +x c14
+      
+      - name: Checking commit format
+        run: |
+          ./c14 --target src --strict --from-merge-base

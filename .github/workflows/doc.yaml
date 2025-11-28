@@ -2,8 +2,21 @@ name: Build and Deploy mdBook Docs
 
 on:
   push:
-    branches-ignore:
-      - mvp
+    branches:
+          - mvp
+    paths:
+      - 'doc/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  cancel-in-progress: true
+  group: pages
+
 
 jobs:
   Doc:
@@ -12,13 +25,19 @@ jobs:
       - name: Code Checkout
         uses: actions/checkout@v4
 
-      - name: Setup C14
-        run: |
-          sudo apt-get install jq
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
           
-          wget https://github.com/eloi-menaud/c14/releases/download/v1.0.0/c14
-          chmod +x c14
-      
-      - name: Checking commit format
+      - name: Build Doc
         run: |
-          ./c14 --target src --strict --from-merge-base
+         cargo install mdbook
+         cd doc
+         mdbook build
+         cd -
+          
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./doc/book
+          publish_branch: gh-pages

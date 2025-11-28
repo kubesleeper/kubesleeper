@@ -1,0 +1,4 @@
+reorder_imports = true
+
+# -- nightly formating : rustup run nightly cargo fmt
+# imports_granularity="Crate"

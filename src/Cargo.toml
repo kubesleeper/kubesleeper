@@ -1,0 +1,25 @@
+[package]
+name = "kubesleeper"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+rocket = "0.5.1"
+kube = { version = "1.0.0", features = ["runtime", "derive"] }
+k8s-openapi = { version = "0.25.0", features = ["latest"] }
+tokio = { version = "1.0.0", features = ["rt", "rt-multi-thread", "macros"] }
+serde_json = "1.0.140"
+anyhow = "1.0.98"
+clap = { version = "4.5.38", features = ["derive"] }
+lazy_static = "1.5.0"
+regex = "1.11.1"
+reqwest = { version = "0.12.20", default-features = false, features = ["rustls-tls"] }
+thiserror = "1.0.69"
+tokio-cron-scheduler = "0.14.0"
+serde = "1.0.228"
+serde_yaml = "0.9"
+indent = "0.1.1"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3", features = ["env-filter","json"] }
+uuid = "1.18.1"
+rand = "0.8"
