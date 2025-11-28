@@ -12,3 +12,8 @@
 .fa-github{
     font-size: 18px !important;
 }
+
+
+.custom-rounded{
+    border-radius: 15px;
+}

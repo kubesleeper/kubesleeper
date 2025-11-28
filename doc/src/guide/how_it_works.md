@@ -2,7 +2,7 @@
 
 ## Step 1 Awake State
 
-![](rsc/flow/Flow1.mvp.drawio.png)
+<img src="/rsc/flow/Flow1.mvp.drawio.png" class="custom-rounded" />
 
 Your cluster **receives traffic**. Kubesleeper detects this activity.
 
@@ -12,7 +12,7 @@ Your cluster **receives traffic**. Kubesleeper detects this activity.
 
 ## Step 2: Sleepiness State
 
-![](rsc/flow/Flow2.mvp.drawio.png)
+<img src="/rsc/flow/Flow2.mvp.drawio.png" class="custom-rounded" />
 
 Your cluster **stops receiving traffic**. Kubesleeper waits a bit to check if the lack of activity is just temporary or if it should transition your cluster to an **Asleep** state.
 
@@ -22,7 +22,7 @@ Your cluster **stops receiving traffic**. Kubesleeper waits a bit to check if th
 
 ### Step 3: Asleep State - Scaling Down
 
-![](rsc/flow/Flow3.mvp.drawio.png)
+<img src="/rsc/flow/Flow3.mvp.drawio.png" class="custom-rounded" />
 
 Your cluster has **not received any traffic** for a certain duration. Kubesleeper will set your cluster **off**, which means:
 
@@ -35,7 +35,7 @@ Your cluster has **not received any traffic** for a certain duration. Kubesleepe
 
 ### Step 4: Asleep State - Scaling Up
 
-![](rsc/flow/Flow4.mvp.drawio.png)
+<img src="/rsc/flow/Flow4.mvp.drawio.png" class="custom-rounded" />
 
 Your cluster **receives new traffic**. This traffic has been redirected to Kubesleeper because there are no resources currently handling it. Kubesleeper will then **turn on** all resources. Since it can take a short amount of time (a few seconds) for your pods to become fully operational, Kubesleeper sends a **waiting page** to the users.
 
@@ -50,7 +50,7 @@ Turning on the cluster means:
 
 ### Step 5: Back to Awake State
 
-![](rsc/flow/Flow5.mvp.drawio.png)
+<img src="/rsc/flow/Flow5.mvp.drawio.png" class="custom-rounded" />
 
 Your cluster is in a normal state (like Step 1).
 

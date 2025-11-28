@@ -1,4 +1,4 @@
-<div align="center" style="border-radius:20px" >
+<div align="center">
 <img src="./doc/src/rsc/ks.gif" width="300">
 <h1>kubesleeper</h1>
 <i>let your cluster take naps</i>
@@ -37,31 +37,35 @@ Advantages of kubesleeper:
   <tr>
     <td align="center">
       <a href="https://github.com/eloi-menaud">
-        <img src="https://github.com/eloi-menaud.png" width="50" style="border-radius:50%;" alt="Eloi"/><br>
+        <img src="https://github.com/eloi-menaud.png" width="50"/><br>
         <strong>Eloi M.</strong>
       </a>
     </td>
     <td align="center">
       <a href="https://github.com/jordanlv">
-        <img src="https://github.com/jordanlv.png" width="50" style="border-radius: 50%" /><br>
+        <img src="https://github.com/jordanlv.png" width="50"/>
+        <br>
         <b>Jordan L.</b>
       </a>
     </td>
     <td align="center">
       <a href="https://github.com/utilise54">
-        <img src="https://github.com/utilise54.png" width="50" style="border-radius: 50%" /><br>
+        <img src="https://github.com/utilise54.png" width="50"/>
+        <br>
         <b>Julien L.</b>
       </a>
     </td>
     <td align="center">
       <a href="https://github.com/MathisCrr">
-        <img src="https://github.com/MathisCrr.png" width="50" style="border-radius: 50%" /><br>
+        <img src="https://github.com/MathisCrr.png" width="50"/>
+        <br>
         <b>Mathis C.</b>
       </a>
     </td>
     <td align="center">
       <a href="https://github.com/QuentinSanterne">
-        <img src="https://github.com/QuentinSanterne.png" width="50" style="border-radius: 50%" /><br>
+        <img src="https://github.com/QuentinSanterne.png" width="50"/>
+        <br>
         <b>Quentin S.</b>
       </a>
     </td>

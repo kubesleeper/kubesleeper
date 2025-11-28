@@ -8,8 +8,7 @@ Kubesleeper only operates within the namespace where it is installed.
 Therefore, ensure you install it in the correct namespace and that you deploy a Kubesleeper instance in every namespace you intend to manage.
 
 # Helm Install
-{explanation}
-{link to values.yaml doc}
+_Work in progress… Coming soon_
 
 # Manual install
-{explanation of minimal requirement to create own deployment}
+_Work in progress… Coming soon_

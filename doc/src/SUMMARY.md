@@ -4,14 +4,14 @@
 
 # User guide
 
-- [How it works](./how_it_works.md)
-- [Install](./install.md)
+- [How it works](./guide/how_it_works.md)
+- [Install](./guide/install.md)
 
 # Config
 
-- [Kubesleeper](./config/kubesleeper.md)
+- [Kubesleeper CLI](./config/kubesleeper_cli.md)
 - [Helm](./config/helm.md)
 
 -----------
-[Contribute](./contribute.md)
-[Roadmap](./roadmap.md)
+[Contribute](./annex/contribute.md)
+[Roadmap](./annex/roadmap.md)
