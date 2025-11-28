@@ -14,15 +14,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup C14
+      - name: Setup
         run: |
-          git branch 
+          git fetch origin mvp
+          
           sudo apt-get install jq
           
           wget https://github.com/eloi-menaud/c14/releases/download/v1.0.0/c14
           chmod +x c14
       
-      - name: Checking commit format
+      - name: Checking commit format with c14
         run: |
           echo "checking all commit since the last one on 'mvp' branch"
           ./c14 --target src --strict --from-merge-base mvp
