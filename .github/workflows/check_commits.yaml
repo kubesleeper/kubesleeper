@@ -9,11 +9,14 @@ jobs:
   Doc:
     runs-on: ubuntu-latest
     steps:
-      - name: Code Checkout
+      - name: Code Checkout du déclencheur
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup C14
         run: |
+          git branch 
           sudo apt-get install jq
           
           wget https://github.com/eloi-menaud/c14/releases/download/v1.0.0/c14
