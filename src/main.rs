@@ -123,8 +123,8 @@ async fn process() -> Result<(), Error> {
     match cli.command {
         Commands::Start => {
             set_kubesleeper_namespace().await?;
-            server::start().await?;
             create_schedule().await.start().await?;
+            server::start().await?;
         }
         Commands::Status => {
             set_kubesleeper_namespace().await?;

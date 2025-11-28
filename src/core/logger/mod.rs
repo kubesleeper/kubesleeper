@@ -41,8 +41,9 @@ pub fn init_logger() -> Result<(), error::Logger> {
         tracing_subscriber::FmtSubscriber::builder()
             .pretty()
             .with_env_filter(filter)
-            .with_writer(io::stdout)
-            .with_target(true)
+            .with_writer(std::io::stdout)
+            .with_target(false)
+            .without_time()
             .with_level(true)
             .init();
     } else {
@@ -50,7 +51,7 @@ pub fn init_logger() -> Result<(), error::Logger> {
         tracing_subscriber::fmt()
             .json()
             .with_env_filter(filter)
-            .with_writer(std::io::stderr)
+            .with_writer(std::io::stdout)
             .with_target(true)
             .with_level(true)
             .init();
