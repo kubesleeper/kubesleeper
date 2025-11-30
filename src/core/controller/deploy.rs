@@ -1,131 +1,261 @@
-use indoc::indoc;
 use k8s_openapi::api::apps::v1::Deployment;
-use kube::api::{ListParams, Patch, PatchParams};
-use kube::runtime::reflector::Lookup;
-use kube::{Api, Client, ResourceExt};
-use std::collections::HashMap;
-use std::fmt;
+use kube::{
+    Api, Client, ResourceExt,
+    api::{ListParams, Patch, PatchParams},
+    runtime::reflector::Lookup,
+};
+use serde::Serialize;
+use tracing::{debug, info};
 
-use super::{error::ControllerError, kube::KUBESLEEPER_ANNOTATION_PREFIX};
+use crate::core::{
+    controller::{constantes::*, error},
+    state::state_kind::StateKind,
+};
+use std::{collections::BTreeMap, fmt};
 
-const ANNOTATION_REPLICAS_KEY: &str = "store.replicas";
-
+#[derive(Serialize)]
 pub struct Deploy {
-    pub annotations: HashMap<String, String>,
+    pub uid: String,
     pub name: String,
     pub namespace: String,
+    pub replicas: i32,
+
+    #[serde(rename = "stored state")]
+    pub store_state: Option<StateKind>,
+    #[serde(rename = "stored replicas")]
+    pub store_replicas: Option<i32>,
 }
+impl TryFrom<&Deployment> for Deploy {
+    type Error = error::Controller;
 
+    fn try_from(deploy: &Deployment) -> std::result::Result<Self, Self::Error> {
+        // --- explicit data
+        let uid = ResourceExt::uid(deploy).ok_or(error::ResourceParse::MissingValue {
+            id: format!("?"),
+            value: "uid".to_string(),
+        })?;
+
+        let name = deploy
+            .name()
+            .ok_or(error::ResourceParse::MissingValue {
+                id: "?/?".to_string(),
+                value: "name".to_string(),
+            })?
+            .to_string();
+
+        let namespace =
+            ResourceExt::namespace(deploy).ok_or(error::ResourceParse::MissingValue {
+                id: format!("{name}"),
+                value: "namespace".to_string(),
+            })?;
+        let deploy_id = format!("{namespace}/{name}");
+
+        let replicas = deploy.spec.as_ref().and_then(|s| s.replicas).ok_or(
+            error::ResourceParse::MissingValue {
+                id: format!("{deploy_id}"),
+                value: ".spec".to_string(),
+            },
+        )?;
+
+        // --- store annotation
+        let raw_annotations = deploy.metadata.annotations.as_ref();
+        let annotations =
+            super::annotations::Annotations::from(raw_annotations.unwrap_or(&BTreeMap::default()));
+
+        // state
+        let store_state = annotations
+            .get(ANNOTATION_STORE_STATE_KEY)
+            .map(|raw_store_state| {
+                StateKind::try_from(raw_store_state).map_err(|err| {
+                    error::ResourceParse::ParseFailed {
+                        id: format!("{deploy_id}"),
+                        value: format!(
+                            ".annotations.{}{}",
+                            KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY
+                        ),
+                        error: format!("{err}"),
+                    }
+                })
+            })
+            .transpose()?;
+
+        // replicas
+        let store_replicas = annotations
+            .get(ANNOTATION_STORE_REPLICAS_KEY)
+            .map(|raw_store_replicas| {
+                raw_store_replicas
+                    .parse::<i32>()
+                    .map_err(|err| error::ResourceParse::ParseFailed {
+                        id: format!("{deploy_id}"),
+                        value: format!(
+                            ".annotations.{}{}",
+                            KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY
+                        ),
+                        error: format!("{err}"),
+                    })
+            })
+            .transpose()?;
+        Ok(Deploy {
+            uid,
+            name,
+            namespace,
+            replicas,
+            store_replicas,
+            store_state,
+        })
+    }
+}
 impl Deploy {
-    pub async fn set_all_asleep() -> Result<(), ControllerError> {
-        let deploys = Deploy::get_all().await?;
-        for deploy in deploys {
-            deploy.sleep().await?
-        }
-        Ok(())
-    }
-    pub async fn set_all_awake() -> Result<(), ControllerError> {
-        let deploys = Deploy::get_all().await?;
-        for deploy in deploys {
-            deploy.wake().await?
-        }
-        Ok(())
-    }
-
-    pub async fn get_all() -> Result<Vec<Deploy>, ControllerError> {
-        let deploys = Deploy::get_k8s_api("ks").await?;
-        Ok(deploys
-            .list(&ListParams::default())
-            .await?
-            .iter()
-            .filter_map(|deployment| Deploy::try_from(deployment).ok())
-            .collect())
-    }
-
-    async fn get_k8s_api(namespace: &str) -> Result<Api<Deployment>, ControllerError> {
+    async fn get_k8s_api(namespace: Option<&str>) -> Result<Api<Deployment>, error::Controller> {
         let client = Client::try_default().await?;
 
-        let deployments: Api<Deployment> = Api::namespaced(client, namespace);
+        let deployments: Api<Deployment> = if let Some(namespace_name) = namespace {
+            Api::namespaced(client, namespace_name)
+        } else {
+            Api::all(client)
+        };
+
         return Ok(deployments);
     }
 
-    async fn set_replicas(&self, count: &i32) -> Result<(), ControllerError> {
-        let deployments = Deploy::get_k8s_api(&self.namespace).await?;
-
+    async fn patch(&self) -> Result<(), error::Controller> {
         let patch = serde_json::json!({
-            "spec": {
-                "replicas": count
+            "spec" : {
+                "replicas": self.replicas
+            },
+            "metadata": {
+                "annotations": {
+                    format!("{KUBESLEEPER_ANNOTATION_PREFIX}{ANNOTATION_STORE_STATE_KEY}"): &self.store_state,
+                    format!("{KUBESLEEPER_ANNOTATION_PREFIX}{ANNOTATION_STORE_REPLICAS_KEY}"): self.store_replicas
+                        .expect("Logically store_replicas must be a Some at this stage")
+                        .to_string()
+                }
             }
         });
         let params = PatchParams::default();
         let patch = Patch::Merge(&patch);
-        let _patched = deployments.patch(&self.name, &params, &patch).await?;
+        Deploy::get_k8s_api(Some(&self.namespace))
+            .await?
+            .patch(&self.name, &params, &patch)
+            .await?;
+
         Ok(())
     }
+}
 
-    pub async fn wake(&self) -> Result<(), ControllerError> {
-        // fetch targeted replicas count thanks to store/ annotation
-        let count: i32 = self
-            .annotations
-            .get(ANNOTATION_REPLICAS_KEY)
-            .ok_or_else(|| {
-                ControllerError::ResourceDataError(format!(
-                    "Missing required annotation '{}'",
-                    ANNOTATION_REPLICAS_KEY
-                ))
-            })?
-            .parse()
-            .map_err(|err| {
-                ControllerError::ResourceDataError(format!(
-                    "Failed to parse '{}' annotation : {}",
-                    ANNOTATION_REPLICAS_KEY, err
-                ))
+impl Deploy {
+    pub async fn wake(&mut self) -> Result<(), error::Controller> {
+        if self.store_state == Some(StateKind::Awake) {
+            debug!(
+                "State of deployment '{}/{}' already marked as '{}', skipping sleep action",
+                self.name,
+                self.namespace,
+                StateKind::Awake.to_string()
+            );
+            return Ok(());
+        }
+
+        self.replicas = self
+            .store_replicas
+            .ok_or(error::ResourceParse::MissingValue {
+                id: format!("{}/{}", self.name, self.namespace),
+                value: format!(
+                    "{}{}",
+                    KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_REPLICAS_KEY
+                ),
             })?;
-
-        // set the replicas count to the targeted value
-        self.set_replicas(&count).await?;
-
-        // remove store/ annotation (forgetting the targeted replicas count)
-        let deployments = Deploy::get_k8s_api(&self.namespace).await?;
-        let patch = serde_json::json!({
-            "metadata": {
-                "annotations": {
-                     format!("{}/{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_REPLICAS_KEY): null
-                }
-            }
-        });
-        let params = PatchParams::default();
-        let patch = Patch::Merge(&patch);
-        deployments.patch(&self.name, &params, &patch).await?;
-
-        Ok(())
+        self.store_state = Some(StateKind::Awake);
+        self.patch().await
     }
 
-    pub async fn sleep(&self) -> Result<(), ControllerError> {
-        let deployments = Deploy::get_k8s_api(&self.namespace).await?;
+    pub async fn sleep(&mut self) -> Result<(), error::Controller> {
+        if self.store_state == Some(StateKind::Asleep) {
+            debug!(
+                "State of deployment '{}/{}' already marked as '{}', skipping sleep action",
+                self.name,
+                self.namespace,
+                StateKind::Asleep.to_string()
+            );
+            return Ok(());
+        }
 
-        // get targeted replicas regarde native configuration
-        let deploy = deployments.get(&self.name).await?;
+        self.store_replicas = Some(self.replicas);
+        self.replicas = 0;
+        self.store_state = Some(StateKind::Asleep);
+        self.patch().await
+    }
+    async fn get_all_k8s_deployments(
+        namespace: Option<&str>,
+    ) -> Result<Vec<Deployment>, error::Controller> {
+        Ok(Deploy::get_k8s_api(namespace)
+            .await?
+            .list(&ListParams::default())
+            .await?
+            .into_iter()
+            .collect())
+    }
 
-        let count = deploy.spec.as_ref().and_then(|spec| spec.replicas).ok_or(
-            ControllerError::ResourceDataError("Missing 'replicas' field".to_string()),
-        )?;
-
-        // storing targeted replicas to store/ annotation (remebering replicas count)
-        let patch = serde_json::json!({
-            "metadata": {
-                "annotations": {
-                     format!("{}/{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_REPLICAS_KEY): format!("{count}")
-                }
+    pub async fn get_kubesleeper() -> Result<Deploy, error::Controller> {
+        debug!("Fetching kubesleeper deployment");
+        let ks_deploys: Vec<Deployment> = Self::get_all_k8s_deployments(None)
+            .await?
+            .into_iter()
+            .filter(|deploy| {
+                deploy
+                    .metadata
+                    .labels
+                    .as_ref()
+                    .unwrap_or(&BTreeMap::new())
+                    .get(KUBESLEEPER_SERVER_LABEL_KEY)
+                    == Some(&KUBESLEEPER_SERVER_LABEL_VALUE.to_string())
+            })
+            .collect();
+        match ks_deploys.len() {
+            0 => Err(error::Controller::MissingKubesleeperDeploy),
+            1 => {
+                let ks = Self::try_from(
+                    ks_deploys
+                        .get(0)
+                        .expect("Deploys should logically have exactly 1 element at this point"),
+                )?;
+                debug!(
+                    "kubesleeper deployment found : {}/{} ({})",
+                    ks.name, ks.namespace, ks.uid
+                );
+                Ok(ks)
             }
-        });
+            x => Err(error::Controller::TooMuchKubesleeperDeploy(x)),
+        }
+    }
 
-        let params = PatchParams::default();
-        let patch = Patch::Merge(&patch);
-        deployments.patch(&self.name, &params, &patch).await?;
+    pub async fn get_all_target() -> Result<Vec<Deploy>, error::Controller> {
+        let deploys = Self::get_all_k8s_deployments(Some(KUBESLEEPER_NAMESPACE.get().unwrap()))
+            .await?
+            .iter()
+            .map(|deploy| Self::try_from(deploy))
+            .collect::<Result<Vec<Deploy>, error::Controller>>()?;
+        let ks_deploy = Self::get_kubesleeper().await?;
 
-        // set replicas count to 0
-        self.set_replicas(&0).await
+        Ok(deploys
+            .into_iter()
+            .filter(|deploy| deploy.uid != ks_deploy.uid)
+            .collect())
+    }
+
+    pub async fn change_all_state(state: StateKind) -> Result<(), error::Controller> {
+        let deploys = Deploy::get_all_target().await?;
+        info!("Set {} deployments {:?}", deploys.len(), state);
+        for mut deploy in deploys {
+            debug!(
+                "Set deployment {}/{} {:?}",
+                deploy.name, deploy.namespace, state
+            );
+            match state {
+                StateKind::Asleep => deploy.sleep().await?,
+                StateKind::Awake => deploy.wake().await?,
+            }
+        }
+        Ok(())
     }
 }
 
@@ -134,47 +264,12 @@ impl fmt::Display for Deploy {
         writeln!(
             f,
             "{}",
-            format!(
-                r#"Name        : {}
-Namespace   : {}
-Annotations : {}"#,
-                self.name,
-                self.namespace,
-                if self.annotations.is_empty() {
-                    "-".to_string()
-                } else {
-                    self.annotations
-                        .iter()
-                        .map(|(k, v)| format!("\n  {}: {}", k, v))
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                }
-            )
+            serde_yaml::to_string(&self)
+                .unwrap_or_else(|e| format!(
+                    "{e} : The structure should always be serializable at this point"
+                ))
+                .trim()
         )?;
         Ok(())
-    }
-}
-
-impl TryFrom<&Deployment> for Deploy {
-    type Error = ControllerError;
-
-    fn try_from(deploy: &Deployment) -> std::result::Result<Self, Self::Error> {
-        let raw_annotations = deploy.metadata.annotations.as_ref();
-        let annotations = super::kube::extract_kube_annoations(raw_annotations);
-
-        let name = deploy
-            .name()
-            .ok_or(ControllerError::ResourceDataError(
-                "Missing 'name' field".to_string(),
-            ))?
-            .to_string();
-        let namespace = ResourceExt::namespace(deploy).ok_or(
-            ControllerError::ResourceDataError("Missing 'namespace' field".to_string()),
-        )?;
-        Ok(Deploy {
-            annotations,
-            name,
-            namespace,
-        })
     }
 }

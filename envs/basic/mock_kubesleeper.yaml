@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubesleeper
+data:
+  index.html: |
+    <a href="http://localhost:8000/wait">call</a>
+  default.conf: |
+    server {
+        listen 8000;
+        server_name localhost;
+    
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html;
+        }
+    }
+
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubesleeper
+  labels:
+    app: kubesleeper
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kubesleeper
+  template:
+    metadata:
+      labels:
+        app: kubesleeper
+    spec:
+      containers:
+        - image: nginx
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html/index.html
+              subPath: index.html
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+          name: nginx
+          ports:
+          - containerPort: 8000
+      volumes:
+        - name: html
+          configMap:
+            name: kubesleeper
+        - name: nginx-config
+          configMap:
+            name: kubesleeper

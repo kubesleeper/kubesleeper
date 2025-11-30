@@ -1,0 +1,43 @@
+name: Build and Deploy mdBook Docs
+
+on:
+  push:
+    branches:
+          - mvp
+    paths:
+      - 'doc/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  cancel-in-progress: true
+  group: pages
+
+
+jobs:
+  Doc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+          
+      - name: Build Doc
+        run: |
+         cargo install mdbook
+         cd doc
+         mdbook build
+         cd -
+          
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./doc/book
+          publish_branch: gh-pages

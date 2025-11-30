@@ -1,112 +1,187 @@
-use super::error::ControllerError;
-use crate::core::controller::kube::KUBESLEEPER_ANNOTATION_PREFIX;
-use k8s_openapi::api::core::v1::Service as K8sService;
-use kube::api::{ListParams, Patch, PatchParams};
-use kube::runtime::reflector::Lookup;
-use kube::{Api, Client, ResourceExt};
-use std::collections::HashMap;
-use std::fmt;
-use std::string::ToString;
+use crate::core::controller::{annotations::Annotations, constantes::*};
 
-const ANNOTATION_SELECTOR_KEY: &str = "store.selectors";
-const SERVER_SELECTOR: (&str, &str) = ("app", "kubesleeper");
+use crate::core::state::state_kind::StateKind;
 
+use super::error;
+use k8s_openapi::{
+    api::core::v1::Service as K8sService, apimachinery::pkg::util::intstr::IntOrString,
+};
+use kube::{
+    Api, Client, ResourceExt,
+    api::{ListParams, Patch, PatchParams},
+    runtime::reflector::Lookup,
+};
+use rocket::serde::Deserialize;
+use serde::Serialize;
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt,
+    string::ToString,
+};
+use tracing::{debug, info};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ServicePort {
+    pub port: i32,
+    #[serde(rename = "targetPort")]
+    pub target_port: IntOrString,
+}
+
+#[derive(Debug, Serialize)]
 pub struct Service {
-    pub annotations: HashMap<String, String>,
     pub name: String,
     pub namespace: String,
-    pub selectors: HashMap<String, String>,
+    pub selector: HashMap<String, String>,
+
+    // using i32 as key and not name cause name is optional.
+    // IntOrString cause it could be map 80:myPort service side,
+    // to match a port named myPort in target container side
+    pub ports: Vec<ServicePort>,
+
+    #[serde(rename = "stored state")]
+    pub store_state: Option<StateKind>,
+    #[serde(rename = "stored selector")]
+    pub store_selector: Option<HashMap<String, String>>,
+    #[serde(rename = "stored ports")]
+    pub store_ports: Option<Vec<ServicePort>>,
 }
 
 impl Service {
-    async fn get_k8s_api(namespace: &str) -> Result<Api<K8sService>, ControllerError> {
+    async fn get_k8s_api(namespace: &str) -> Result<Api<K8sService>, error::Controller> {
         let client = Client::try_default().await?;
 
         let services: Api<K8sService> = Api::namespaced(client, namespace);
-        return Ok(services);
+        Ok(services)
     }
 
-    pub async fn get_all() -> Result<Vec<Service>, ControllerError> {
-        let services = Service::get_k8s_api("ks").await?;
-        Ok(services
+    async fn patch(&self) -> Result<(), error::Controller> {
+        let store_selector = serde_json::to_string(
+            self.store_selector
+                .as_ref()
+                .expect("Logically store_selector must be a Some at this stage"),
+        )?;
+        let store_ports = serde_json::to_string(
+            self.store_ports
+                .as_ref()
+                .expect("Logically store_ports must be a Some at this stage"),
+        )?;
+
+        let patch = serde_json::json!({
+            "spec" : {
+                "selector": self.selector,
+                "ports": self.ports
+            },
+            "metadata": {
+                "annotations": {
+                    format!("{KUBESLEEPER_ANNOTATION_PREFIX}{ANNOTATION_STORE_STATE_KEY}"): &self.store_state,
+                    format!("{KUBESLEEPER_ANNOTATION_PREFIX}{ANNOTATION_STORE_SELECTOR_KEY}"): store_selector,
+                    format!("{KUBESLEEPER_ANNOTATION_PREFIX}{ANNOTATION_STORE_PORTS_KEY}"): store_ports
+                }
+            }
+        });
+
+        let params = PatchParams::default();
+        let patch = Patch::Merge(&patch);
+        Service::get_k8s_api(&self.namespace)
+            .await?
+            .patch(&self.name, &params, &patch)
+            .await?;
+
+        Ok(())
+    }
+}
+
+impl Service {
+    pub async fn wake(&mut self) -> Result<(), error::Controller> {
+        if self.store_state == Some(StateKind::Awake) {
+            debug!(
+                "State of service '{}/{}' already marked as '{}', skipping wake action",
+                self.name,
+                self.namespace,
+                StateKind::Awake.to_string()
+            );
+            return Ok(());
+        }
+
+        // point to target
+        self.selector = self
+            .store_selector
+            .clone()
+            .ok_or(error::ResourceParse::MissingValue {
+                id: format!("{}/{}", self.name, self.namespace),
+                value: format!(
+                    ".annotations.{}/{}",
+                    KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_SELECTOR_KEY
+                ),
+            })?;
+
+        self.ports = self
+            .store_ports
+            .clone()
+            .ok_or(error::ResourceParse::MissingValue {
+                id: format!("{}/{}", self.name, self.namespace),
+                value: format!(
+                    ".annotations.{}/{}",
+                    KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_PORTS_KEY
+                ),
+            })?;
+
+        self.store_state = Some(StateKind::Awake);
+        self.patch().await
+    }
+
+    pub async fn sleep(&mut self) -> Result<(), error::Controller> {
+        if self.store_state == Some(StateKind::Asleep) {
+            debug!(
+                "State of service '{}/{}' already marked as '{}', skipping wake action",
+                self.name,
+                self.namespace,
+                StateKind::Awake.to_string()
+            );
+            return Ok(());
+        }
+
+        self.store_selector = Some(self.selector.clone());
+        self.store_ports = Some(self.ports.clone());
+
+        // point to server
+        self.selector = HashMap::new();
+        self.selector.insert(
+            KUBESLEEPER_SERVER_SELECTOR_KEY.to_string(),
+            KUBESLEEPER_SERVER_SELECTOR_VALUE.to_string(),
+        );
+
+        self.ports
+            .iter_mut()
+            .for_each(|sp| sp.target_port = IntOrString::Int(KUBESLEEPER_SERVER_PORT));
+
+        self.store_state = Some(StateKind::Asleep);
+        self.patch().await
+    }
+
+    pub async fn get_all_target(namespace: &str) -> Result<Vec<Service>, error::Controller> {
+        Service::get_k8s_api(namespace)
+            .await?
             .list(&ListParams::default())
             .await?
             .iter()
-            .filter_map(|deployment| Service::try_from(deployment).ok())
-            .collect())
+            .map(|d| Service::try_from(d))
+            .collect()
     }
 
-    async fn set_selectors(
-        &self,
-        selectors: &HashMap<String, String>,
-    ) -> Result<(), ControllerError> {
-        let services = Service::get_k8s_api(&self.namespace).await?;
-
-        let patch = serde_json::json!({
-            "selector": selectors
-        });
-
-        let params = PatchParams::default();
-        let patch = Patch::Merge(&patch);
-        let _patched = services.patch(&self.name, &params, &patch).await?;
-        Ok(())
-    }
-
-    pub async fn redirect_to_server(&self) -> Result<(), ControllerError> {
-        // add store annotation (remember the targeted selectors)
-        let services = Service::get_k8s_api(&self.namespace).await?;
-        let patch = serde_json::json!({
-            "metadata": {
-                "annotations": {
-                     format!(
-                        "{}/{}",
-                        KUBESLEEPER_ANNOTATION_PREFIX,
-                        ANNOTATION_SELECTOR_KEY
-                    ): serde_json::to_string(&self.selectors)?
-                }
+    pub async fn change_all_state(state: StateKind) -> Result<(), error::Controller> {
+        let services = Service::get_all_target("ks").await?;
+        info!("Set {} services {:?}", services.len(), state);
+        for mut service in services {
+            debug!(
+                "Set service {}/{} {:?}",
+                service.name, service.namespace, state
+            );
+            match state {
+                StateKind::Asleep => service.sleep().await?,
+                StateKind::Awake => service.wake().await?,
             }
-        });
-        let params = PatchParams::default();
-        let patch = Patch::Merge(&patch);
-        services.patch(&self.name, &params, &patch).await?;
-
-        self.set_selectors(&HashMap::from([(
-            SERVER_SELECTOR.0.to_string(),
-            SERVER_SELECTOR.1.to_string(),
-        )]))
-        .await?;
-        Ok(())
-    }
-
-    pub async fn redirect_to_origin(&self) -> Result<(), ControllerError> {
-        // fetch targeted replicas count thanks to store/ annotation
-        let raw_selectors = self
-            .annotations
-            .get(ANNOTATION_SELECTOR_KEY)
-            .ok_or_else(|| {
-                ControllerError::ResourceDataError(format!(
-                    "Missing required annotation '{}'",
-                    ANNOTATION_SELECTOR_KEY
-                ))
-            })?;
-
-        let selectors = &serde_json::from_str::<HashMap<String, String>>(raw_selectors)?;
-
-        self.set_selectors(selectors).await?;
-
-        // remove store annotation (forgetting the targeted selectors)
-        let services = Service::get_k8s_api(&self.namespace).await?;
-        let patch = serde_json::json!({
-            "metadata": {
-                "annotations": {
-                     format!("{}/{}",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_SELECTOR_KEY): null
-                }
-            }
-        });
-        let params = PatchParams::default();
-        let patch = Patch::Merge(&patch);
-        services.patch(&self.name, &params, &patch).await?;
-
+        }
         Ok(())
     }
 }
@@ -116,65 +191,124 @@ impl fmt::Display for Service {
         writeln!(
             f,
             "{}",
-            format!(
-                r#"Name        : {}
-Namespace   : {}
-Selectors   : {}
-Annotations : {}"#,
-                self.name,
-                self.namespace,
-                self.selectors
-                    .iter()
-                    .map(|(k, v)| format!("\n  {}: {}", k, v))
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-                if self.annotations.is_empty() {
-                    "-".to_string()
-                } else {
-                    self.annotations
-                        .iter()
-                        .map(|(k, v)| format!("\n  {}: {}", k, v))
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                }
-            )
+            serde_yaml::to_string(&self)
+                .unwrap_or_else(|e| format!(
+                    "{e} : The structure should always be serializable at this point"
+                ))
+                .trim()
         )?;
         Ok(())
     }
 }
 
 impl TryFrom<&K8sService> for Service {
-    type Error = ControllerError;
+    type Error = error::Controller;
 
     fn try_from(service: &K8sService) -> std::result::Result<Self, Self::Error> {
-        let raw_annotations = service.metadata.annotations.as_ref();
-        let annotations = super::kube::extract_kube_annoations(raw_annotations);
-
+        // --- explicit data
         let name = service
             .name()
-            .ok_or(ControllerError::ResourceDataError(
-                "Missing 'name' field".to_string(),
-            ))?
+            .ok_or_else(|| error::ResourceParse::MissingValue {
+                id: format!("?/?"),
+                value: format!("name"),
+            })?
             .to_string();
-        let namespace = ResourceExt::namespace(service).ok_or(
-            ControllerError::ResourceDataError("Missing 'namespace' field".to_string()),
-        )?;
+        let namespace =
+            ResourceExt::namespace(service).ok_or(error::ResourceParse::MissingValue {
+                id: format!("{name}/?"),
+                value: format!("namespace"),
+            })?;
 
-        let selectors: HashMap<String, String> = service
+        let service_id = format!("{name}/{namespace}");
+
+        let selector: HashMap<String, String> = service
             .spec
             .as_ref()
-            .and_then(|s| s.selector.clone())
-            .ok_or(ControllerError::ResourceDataError(
-                "Missing selector values".to_string(),
-            ))?
+            .and_then(|s| s.selector.as_ref())
+            .ok_or_else(|| error::ResourceParse::MissingValue {
+                id: format!("{service_id}"),
+                value: format!(".spec.selector"),
+            })?
+            .clone()
             .into_iter()
             .collect();
 
+        let ports: Vec<ServicePort> = service
+            .spec
+            .as_ref()
+            .and_then(|s| s.ports.as_ref())
+            .ok_or_else(|| error::ResourceParse::MissingValue {
+                id: format!("{service_id}"),
+                value: format!(".spec.ports"),
+            })?
+            .clone()
+            .into_iter()
+            .map(|svc_port| ServicePort {
+                port: svc_port.port,
+                target_port: svc_port
+                    .target_port
+                    .unwrap_or(IntOrString::Int(svc_port.port)),
+            })
+            .collect();
+        let raw_annotations = service.metadata.annotations.as_ref();
+        let annotations = Annotations::from(raw_annotations.unwrap_or(&BTreeMap::default()));
+
+        // --- store annotation
+        let store_state = annotations
+            .get(ANNOTATION_STORE_STATE_KEY)
+            .map(|raw_store_state| {
+                StateKind::try_from(raw_store_state).map_err(|_| {
+                    error::ResourceParse::MissingValue {
+                        id: format!("{service_id}"),
+                        value: format!(
+                            ".annotations.{}{}",
+                            KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY
+                        ),
+                    }
+                })
+            })
+            .transpose()?;
+
+        let store_selector = annotations
+            .get(ANNOTATION_STORE_SELECTOR_KEY)
+            .map(|raw_store_selector| {
+                serde_json::from_str(raw_store_selector).map_err(|err| {
+                    error::ResourceParse::ParseFailed {
+                        id: format!("{service_id}"),
+                        value: format!(
+                            ".annotation.{}{}",
+                            KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_SELECTOR_KEY
+                        ),
+                        error: format!("{err}"),
+                    }
+                })
+            })
+            .transpose()?;
+
+        let store_ports = annotations
+            .get(ANNOTATION_STORE_PORTS_KEY)
+            .map(|raw_store_ports| {
+                serde_json::from_str(raw_store_ports).map_err(|err| {
+                    error::ResourceParse::ParseFailed {
+                        id: format!("service_id"),
+                        value: format!(
+                            ".annotations.{}{}",
+                            KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_PORTS_KEY
+                        ),
+                        error: format!("{err}"),
+                    }
+                })
+            })
+            .transpose()?;
+
         Ok(Service {
-            annotations,
             name,
             namespace,
-            selectors,
+            selector,
+            ports,
+            store_selector,
+            store_ports,
+            store_state,
         })
     }
 }
