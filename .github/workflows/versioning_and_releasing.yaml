@@ -1,0 +1,60 @@
+
+# name: Versioning and Releasing
+
+# on:
+#   push:
+#     branches:
+#       - c14
+
+# jobs:
+#   version_and_release:
+#     runs-on: ubuntu-latest
+    
+#     permissions:
+#       contents: write # for 'git push'
+
+#     steps:
+#       - name: Code Checkout du déclencheur
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+
+#       - name: Setup
+#         run: |          
+#           sudo apt-get install jq
+#           wget https://github.com/eloi-menaud/c14/releases/download/v2.0.0/c14
+#           chmod +x c14
+      
+#       - name: Get version from c14
+#         id: get_version
+#         run: |
+#           echo "get new version from last version tag"
+#           version=$(./c14 --strict)
+#           echo "version=$version" >> $GITHUB_OUTPUT
+
+#       - name: Override cargo.toml version
+#         id: get_version
+#         run: |
+#           sed -i "s/^version\s*=.+$/version = \"${{ steps.get_version.outputs.version }}\"/" src/Cargo.toml
+      
+#       - name: Building kubesleeper
+#         run: |
+#           cd src
+#           cargo build --release
+      
+#       - name: Pushing new Cargo.toml
+#         run: |
+#           git add src/Cargo.toml
+#           git config user.name github-actions
+#           git config user.email github-actions@github.com
+#           git commit -m "feat: auto ci versioning [skip ci]"
+#           git push
+
+#       - name: Create GitHub Release
+#         uses: softprops/action-gh-release@v2
+#         with:
+#           tag_name: v${{ steps.get_version.outputs.version }}
+#           name: Release v${{ steps.get_version.outputs.version }}
+#           files: src/target/release/kubesleeper
+#         env:
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
