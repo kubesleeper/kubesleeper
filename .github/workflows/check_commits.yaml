@@ -4,7 +4,7 @@ on:
   pull_request:
 
 jobs:
-  Doc:
+  checking_commits:
     runs-on: ubuntu-latest
     steps:
       - name: Code Checkout du déclencheur
