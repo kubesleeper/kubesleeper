@@ -1,4 +1,4 @@
-name: Build and Deploy mdBook Docs
+name: Commit checks
 
 on:
   push:
@@ -19,7 +19,7 @@ concurrency:
 
 
 jobs:
-  Doc:
+  commit_checks:
     runs-on: ubuntu-latest
     steps:
       - name: Code Checkout

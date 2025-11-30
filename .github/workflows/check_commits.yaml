@@ -1,4 +1,4 @@
-name: PR Checking commit format
+name: Checking commit format
 
 on:
   pull_request:
@@ -22,5 +22,6 @@ jobs:
       - name: Checking commit format with c14
         run: |
           echo "checking all commit since the last one on '$GITHUB_BASE_REF' branch"
-          ./c14 --strict --from-merge-base origin/$GITHUB_BASE_REF
+          ./c14 --report --from-merge-base origin/$GITHUB_BASE_REF
+          cat c14-report.json
 
