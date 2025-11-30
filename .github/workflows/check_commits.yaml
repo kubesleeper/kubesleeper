@@ -9,13 +9,12 @@ jobs:
     steps:
       - name: Code Checkout du déclencheur
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        # with:
+        #   fetch-depth: 0
 
       - name: Setup
-        run: |          
-          sudo apt-get install jq
-          
+        run: |
+          git log origin/c14-test..HEAD
           wget https://github.com/eloi-menaud/c14/releases/download/v2.0.0/c14
           chmod +x c14
       
