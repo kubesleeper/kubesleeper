@@ -27,7 +27,7 @@ jobs:
         id: get_version
         run: |
           echo "get new version from last version tag"
-          version=$(./c14 --strict --report)
+          version=$(./c14 --strict --report --target src)
           cat c14-report.json
           sanitized_version=$( echo "$version" | sed s/^v// )-alpha
           echo "version=$sanitized_version" >> $GITHUB_OUTPUT
