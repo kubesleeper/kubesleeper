@@ -1,0 +1,29 @@
+name: Checking commits
+
+on:
+  pull_request:
+
+jobs:
+  checking_commits:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code Checkout du déclencheur
+        uses: actions/checkout@v4
+        with:
+          # Important: In a GitHub Pull Request (PR), 'actions/checkout' often uses a merge commit
+          # between the base and head branches, resulting in a confusing commit message 
+          # like "Merge .... into ...".
+          # To force the checkout to the actual head of the PR branch (the commit you submitted),
+          # you must explicitly specify the branch reference
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Setup c14
+        run: |
+          wget https://github.com/eloi-menaud/c14/releases/download/v2.0.0/c14
+          chmod +x c14
+      
+      - name: Checking commit format with c14
+        run: |
+          echo "checking all commit since the last one on '$GITHUB_BASE_REF' branch"
+          ./c14 --strict --from-merge-base origin/$GITHUB_BASE_REF
