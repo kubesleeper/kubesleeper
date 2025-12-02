@@ -49,8 +49,8 @@ Advantages of kubesleeper:
       </a>
     </td>
     <td align="center">
-      <a href="https://github.com/utilise54">
-        <img src="https://github.com/utilise54.png" width="50"/>
+      <a href="https://github.com/j54laurenceau">
+        <img src="https://github.com/j54laurenceau.png" width="50"/>
         <br>
         <b>Julien L.</b>
       </a>
