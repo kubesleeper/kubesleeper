@@ -8,7 +8,8 @@ title = "Kubesleeper"
 cname = "kubesleeper.com"
 git-repository-url = "https://github.com/kubesleeper/kubesleeper"
 additional-css = ["theme/custom.css"]
+default-theme = "light"
+preferred-dark-theme = "coal"
 
 [output.html.print]
 enable = false  
-
