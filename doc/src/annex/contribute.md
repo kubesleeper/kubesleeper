@@ -32,8 +32,7 @@ Use `cargo run -- {kubesleeper args}` to run kubesleeper action from your source
 
 Check `cargo run -- manual --help` to see the manual action you can do (useful for debug/test works)
 
->[!info]
-> see [Dev namespace](#Dev namespace) to install an already pre-configured namespace
+> See [Dev namespace](#dev-namespace) to install an already pre-configured namespace
 
 ### build source
 Use `cargo build --release` to build kubesleeper release.
