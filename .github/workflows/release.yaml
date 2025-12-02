@@ -20,7 +20,7 @@ jobs:
 
       - name: Setup
         run: |          
-          wget https://github.com/eloi-menaud/c14/releases/download/v2.0.0/c14
+          wget https://github.com/eloi-menaud/c14/releases/download/v3.0.0/c14
           chmod +x c14
       
       - name: Get version from c14
