@@ -20,7 +20,7 @@ jobs:
 
       - name: Setup c14
         run: |
-          wget https://github.com/eloi-menaud/c14/releases/download/v2.0.0/c14
+          wget https://github.com/eloi-menaud/c14/releases/download/v3.0.0/c14
           chmod +x c14
       
       - name: Checking commit format with c14
