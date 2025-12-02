@@ -1,0 +1,70 @@
+
+.left-buttons{
+    margin-right: 0px !important;
+}
+.right-buttons{
+    margin-left: 5px !important;
+}
+.menu-title{
+    display: none;
+}
+
+.fa-github{
+    font-size: 18px !important;
+}
+
+.custom-rounded{
+    border-radius: 15px;
+}
+
+.light{
+    --bg: #fff;
+    --fg: #000;
+    --sidebar-bg: #f3f3f3;
+    --sidebar-active: #3731fd;
+    --links: #3731fd;
+    
+    --icons: #7e7e7e;
+    --icons-hover: #000000;
+    --theme-hover: #f3f3f3;
+    --quote-bg: #f3f3f3;
+    --quote-border: #d5d5d5;
+    --theme-popup-bg: white;
+}
+
+.coal {
+  --bg: #000000;
+  --fg: #e5e5e5;
+  --sidebar-bg: hsl(0, 0%, 7%);
+  --sidebar-fg: #b9b9b9;
+  --theme-hover: hsl(0, 0%, 7%);
+  --sidebar-active: #5282f2;
+  --links: #5282f2;
+  --icons: #777;
+  --icons-hover: #ffffff;
+  --searchbar-bg: hsl(0, 0%, 7%);
+  --searchbar-fg: #ffffff;
+  --quote-bg: hsl(0, 0%, 7%);
+  --quote-border: #353535;
+  --theme-popup-bg: hsl(0, 0%, 0%);
+  
+}
+
+
+#searchbar{
+    outline: none;
+    border-radius: 6px;
+}
+#searchbar:focus{
+    border-color: white;
+}
+
+.hljs{
+    background: var(--quote-bg);
+    border: 1px solid var(--quote-border);
+    border-radius: 5px;
+}
+
+#ayu, #navy, #rust{
+    display: none;
+}
