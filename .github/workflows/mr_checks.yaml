@@ -1,0 +1,19 @@
+name: Checking code
+
+on:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Check that code is formated
+        run: |
+          cargo fmt --check || { echo "Please run 'cargo fmt' to have a correctly formated code"; exit 1; }
+
+      - name: Run test
+        run: |
+          RUSTFLAGS="-D warnings" cargo test --color always || { echo "(Warnings are considered errors)"; exit 1; }

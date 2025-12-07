@@ -1,16 +1,9 @@
-use crate::core::ingress::error::IngressError;
-use crate::core::server::error::ServerError;
-use crate::core::{controller, logger};
-
 use serde::{Deserialize, Deserializer, Serialize};
-use std::ffi::OsStr;
-use std::io::ErrorKind;
 use std::num::{NonZeroU16, NonZeroU32};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
-use tokio_cron_scheduler::JobSchedulerError;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 
 const DEFAULT_CONFIG_FILE_PATH: &str = "kubesleeper.yaml";
 
@@ -66,15 +59,6 @@ where
 {
     let seconds = u64::deserialize(deserializer)?;
     Ok(Duration::from_secs(seconds))
-}
-
-pub mod error {
-    #[derive(Debug, thiserror::Error)]
-    pub enum Controller {
-        #[allow(dead_code)]
-        #[error("File {0} not found")]
-        FileNotFound(#[from] kube::Error),
-    }
 }
 
 #[derive(Debug, thiserror::Error)]

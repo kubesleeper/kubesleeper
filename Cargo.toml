@@ -1,7 +1,8 @@
 [package]
 name = "kubesleeper"
-version = "0.0.0-alpha"
+version = "0.21.0"
 edition = "2024"
+
 
 [dependencies]
 rocket = "0.5.1"
