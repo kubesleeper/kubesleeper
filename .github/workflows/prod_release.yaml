@@ -115,7 +115,7 @@ jobs:
           git config user.email "kubesleeper-ci-bot@kubesleeper.com"
 
           git commit -m "feat: auto ci versioning v${{ needs.version.outputs.version }} [skip ci]"
-          git push origin ci-app
+          git push origin main
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
