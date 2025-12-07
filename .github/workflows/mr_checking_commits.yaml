@@ -25,6 +25,16 @@ jobs:
       
       - name: Checking commit format with c14
         run: |
-          echo "checking all commit since the last one on '$GITHUB_BASE_REF' branch"
+          
+          echo "═════ checking all commit since the last one on '$GITHUB_BASE_REF' branch"
           ./c14 --strict --report --from-merge-base origin/$GITHUB_BASE_REF
+          
+          SRC_DIR="src/"
+          echo
+          echo "═════ checking the version incrementation by looking at commits editing $SRC_DIR"
+          version=$(./c14 --strict --report --target $SRC_DIR)
           cat c14-report.json
+          echo
+          printf "version will be : \033[35m%s\033[0m" $version
+
+          

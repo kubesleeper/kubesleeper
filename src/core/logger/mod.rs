@@ -1,6 +1,4 @@
-use std::io::{self, Write};
 use tracing::level_filters::LevelFilter;
-use tracing_subscriber::{fmt, layer::SubscriberExt};
 
 pub mod error {
     use tracing::subscriber::SetGlobalDefaultError;
