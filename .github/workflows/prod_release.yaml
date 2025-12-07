@@ -1,0 +1,127 @@
+name: Versioning and Releasing
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup
+        run: |
+          wget https://github.com/eloi-menaud/c14/releases/download/v3.0.0/c14
+          chmod +x c14
+      
+      - name: Get version from c14
+        id: get_version
+        run: |
+          echo "get new version from last version tag"
+          sanitized_version=$(./c14 --strict --report | sed s/^v//)
+          cat c14-report.json
+          echo
+          if test "$sanitized_version" == "0.0.0"
+          then
+            echo "Version has not been changed, skipping"
+            sanitized_version=""
+          fi
+          echo "version=$sanitized_version" >> $GITHUB_OUTPUT
+
+
+  build:
+    needs: version
+    runs-on: ubuntu-latest
+    if: ${{ needs.version.outputs.version != '' }} 
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Override cargo.toml version
+        run: |
+          version="${{ needs.version.outputs.version }}"
+          echo "Overriding Cargo.toml with version: $version"
+          sed -i "s/^version\s*=.*$/version = \"${version}\"/" Cargo.toml
+          git -c color.ui=always diff Cargo.toml
+
+      - name: Building kubesleeper
+        run: |
+          cd src
+          RUSTFLAGS="-D warnings" cargo build --release --color always
+    
+      - name: Upload Artifact (Cargo.toml, kubesleeper binary)
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-products
+          path: |
+            target/release/kubesleeper
+            Cargo.toml
+          retention-days: 1
+
+
+  release:
+    needs:
+      - build
+      - version
+    runs-on: ubuntu-latest
+    
+    if: ${{ needs.version.outputs.version != '' }} 
+    
+    permissions:
+      contents: write # for 'git push' and 'action-gh-release'
+
+    steps:
+      # The main branch is protected, it's not possible to push on it, we can only merge a MR
+      # But the version (in Cargo.toml) is automatically managed
+      # To allow Github Action to push, it's needed to creat a Github App (an empty one)
+      # with "content > Read & Write" access, and allowwing this app to push on main.
+      # 
+      # It's first needed to create a Token from the Private Key 
+      - name: Generate App Token
+        id: generate_token
+        uses: actions/create-github-app-token@v1 
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          permission-contents: write
+      
+     # Use Github App as git user
+      - name: Code Checkout
+        uses: actions/checkout@v4
+        with:
+            token: ${{ steps.generate_token.outputs.token }} 
+    
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: built-products
+          path: .
+      
+      - name: Pushing Cargo.toml with updated version
+        run: |          
+          git -c color.ui=always diff Cargo.toml
+          git add Cargo.toml
+          
+          git config user.name "kubesleeper ci bot" 
+          git config user.email "kubesleeper-ci-bot@kubesleeper.com"
+
+          git commit -m "feat: auto ci versioning v${{ needs.version.outputs.version }} [skip ci]"
+          git push origin ci-app
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version.outputs.version }}
+          name: Release v${{ needs.version.outputs.version }}
+          files: src/target/release/kubesleeper
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

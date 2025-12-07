@@ -13,7 +13,6 @@ use crate::core::{
 };
 
 use lazy_static::lazy_static;
-use std::fmt::format;
 use std::num::NonZeroU32;
 use std::{
     collections::HashMap,
