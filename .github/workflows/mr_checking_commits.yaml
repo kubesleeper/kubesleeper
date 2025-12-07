@@ -31,8 +31,8 @@ jobs:
           SRC_DIR="src/"
           echo "checking the version incrementation by looking at commits editing $SRC_DIR"
           version=$(./c14 --strict --report --target $SRC_DIR)
-          echo
           cat c14-report.json
-          echo "version will be : \033[35m$version\033[0m"
+          echo
+          printf "version will be : \033[35m%s\033[0m" $version
 
           
