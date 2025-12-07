@@ -8,12 +8,12 @@ use clap::{Parser, Subcommand, ValueEnum};
 use serde::Serialize;
 use tokio_cron_scheduler::JobSchedulerError;
 
-use crate::core::config::config;
+use crate::core::config;
+use crate::core::state::state::SLEEPINESS_DURATION;
 use crate::core::{
-    controller,
-    controller::{deploy::Deploy, service::Service, set_kubesleeper_namespace},
+    controller::{self, deploy::Deploy, service::Service, set_kubesleeper_namespace},
     ingress::{IngressType, error::IngressError},
-    logger::{self, HUMAN_READABLE_MODE, VERBOSE_MODE, init_logger},
+    logger::{self, init_logger},
     server,
     server::error::ServerError,
     state::{state::create_schedule, state_kind::StateKind},
@@ -34,9 +34,9 @@ struct Cli {
     /// Human readable mode for logging
     readable_log: bool,
 
-    #[arg(long, default_value = "./kubesleeper.yaml")]
+    #[arg(long)]
     /// Path to the kubesleeper YAML configuration file
-    config: PathBuf,
+    config: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
@@ -81,26 +81,27 @@ enum Manual {
     },
     /// Start web server alone (without kube resource management)
     StartServer,
+    DumpConfig,
 }
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
-    #[error(transparent)]
+    #[error("Internal : Controller : {0}")]
     ControllerError(#[from] controller::error::Controller),
 
-    #[error(transparent)]
+    #[error("Internal : Ingress : {0}")]
     IngressError(#[from] IngressError),
 
-    #[error(transparent)]
+    #[error("Internal : Job Scheduler :{0}")]
     JobSchedulerError(#[from] JobSchedulerError),
 
-    #[error(transparent)]
-    ServerError(#[from] ServerError),
-
-    #[error(transparent)]
+    #[error("Internal : Log : {0}")]
     LoggerError(#[from] logger::error::Logger),
 
-    #[error(transparent)]
+    #[error("Server : {0}")]
+    ServerError(#[from] ServerError),
+
+    #[error("Config : {0}")]
     ConfigError(#[from] config::ConfigError),
 }
 
@@ -108,23 +109,23 @@ enum Error {
 async fn process() -> Result<(), Error> {
     let cli = Cli::parse();
 
-    let config = config::parse(PathBuf::from(cli.config))?;
-    println!("{config:?}");
-
     //logging setup
-    VERBOSE_MODE
-        .set(cli.verbose)
-        .expect("Failed to set up verbose mode");
-    HUMAN_READABLE_MODE
-        .set(cli.readable_log)
-        .expect("Failed to set up human-readable mode");
-    init_logger()?;
+    init_logger(cli.verbose, cli.readable_log)?;
+
+    let config = config::parse(cli.config)?;
 
     match cli.command {
         Commands::Start => {
+            SLEEPINESS_DURATION
+                .set(config.controller.sleepiness_duration)
+                .expect("Failed to set up sleepiness duration");
+
             set_kubesleeper_namespace().await?;
-            create_schedule().await.start().await?;
-            server::start().await?;
+            create_schedule(config.controller.refresh_interval)
+                .await
+                .start()
+                .await?;
+            server::start(config.server.port).await?;
         }
         Commands::Status => {
             set_kubesleeper_namespace().await?;
@@ -167,6 +168,14 @@ async fn process() -> Result<(), Error> {
         }
 
         Commands::Manual(subcmd) => match &subcmd {
+            Manual::DumpConfig {} => {
+                println!(
+                    "{}",
+                    serde_yaml::to_string(&config).unwrap_or(format!("{config:?}"))
+                );
+                //TODO: Overwrite Duration serialization to have only seconds printed
+            }
+
             // merge 2 cases to not have code duplication for splitting resource-name and namespace
             Manual::SetDeploy { resource_id, state }
             | Manual::SetService { resource_id, state } => {
@@ -220,7 +229,7 @@ async fn process() -> Result<(), Error> {
                 }
             }
             Manual::StartServer => {
-                server::start().await?;
+                server::start(config.server.port).await?;
             }
         },
     };

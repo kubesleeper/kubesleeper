@@ -1,9 +1,6 @@
+use std::io::{self, Write};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{fmt, layer::SubscriberExt};
-use std::io::{self, Write};
-
-pub static VERBOSE_MODE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-pub static HUMAN_READABLE_MODE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 
 pub mod error {
     use tracing::subscriber::SetGlobalDefaultError;
@@ -19,7 +16,7 @@ pub mod error {
     }
 }
 
-pub fn init_logger() -> Result<(), error::Logger> {
+pub fn init_logger(verbose: bool, readable_log: bool) -> Result<(), error::Logger> {
     let filter = tracing_subscriber::EnvFilter::builder()
         .with_default_directive(LevelFilter::OFF.into())
         .from_env()
@@ -28,7 +25,7 @@ pub fn init_logger() -> Result<(), error::Logger> {
             format!(
                 "{}={}",
                 env!("CARGO_PKG_NAME"),
-                if *VERBOSE_MODE.get().unwrap_or(&false) {
+                if verbose {
                     tracing::Level::DEBUG
                 } else {
                     tracing::Level::INFO
@@ -37,7 +34,7 @@ pub fn init_logger() -> Result<(), error::Logger> {
             .parse()?,
         );
 
-    if *HUMAN_READABLE_MODE.get().unwrap_or(&false) {
+    if readable_log {
         tracing_subscriber::FmtSubscriber::builder()
             .pretty()
             .with_env_filter(filter)
@@ -47,7 +44,6 @@ pub fn init_logger() -> Result<(), error::Logger> {
             .with_level(true)
             .init();
     } else {
-        
         tracing_subscriber::fmt()
             .json()
             .with_env_filter(filter)

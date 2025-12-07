@@ -1,39 +1,39 @@
 # How It Works
 
-## Step 1 Awake State
+## Step 1: _Awake_ State
 
 <img src="/rsc/flow/Flow1.mvp.drawio.png" class="custom-rounded" />
 
 Your cluster **receives traffic**. Kubesleeper detects this activity.
 
-\> Your cluster is in an **Awake** state.
+\> Your cluster is in an _**Awake**_ state.
 
 ---
 
-## Step 2: Sleepiness State
+## Step 2: _Sleepiness_ State
 
 <img src="/rsc/flow/Flow2.mvp.drawio.png" class="custom-rounded" />
 
-Your cluster **stops receiving traffic**. Kubesleeper waits a bit to check if the lack of activity is just temporary or if it should transition your cluster to an **Asleep** state.
+Your cluster **stops receiving traffic**. Kubesleeper waits a bit to check if the lack of activity is just temporary or if it should transition your cluster to an **_Asleep_** state.
 
-\> Your cluster is in a **Sleepiness** state.
+\> Your cluster is in a _**Sleepiness**_ state.
 
 ---
 
-### Step 3: Asleep State - Scaling Down
+## Step 3: _Asleep_ State - Scaling Down
 
 <img src="/rsc/flow/Flow3.mvp.drawio.png" class="custom-rounded" />
 
 Your cluster has **not received any traffic** for a certain duration. Kubesleeper will set your cluster **off**, which means:
 
-* Load resources (**Deployments**) are turned off ($`replicas: 0`$).
+* Load resources (**Deployments**) are turned off (`replicas: 0`).
 * **Services** redirect traffic to Kubesleeper instead of their normal load resources.
 
-\> Your cluster is in an **Asleep** state.
+\> Your cluster is in an **_Asleep_** state.
 
 ---
 
-### Step 4: Asleep State - Scaling Up
+### Step 4: _Asleep_ State - Scaling Up
 
 <img src="/rsc/flow/Flow4.mvp.drawio.png" class="custom-rounded" />
 
@@ -41,17 +41,17 @@ Your cluster **receives new traffic**. This traffic has been redirected to Kubes
 
 Turning on the cluster means:
 
-* Load resources (**Deployments**) are turned on ($`replicas: {same number as when they were turned off}`$).
+* Load resources (**Deployments**) are turned on (`replicas: {same number as when they were turned off}`).
 * **Services** redirect the traffic back to their normal load resources.
 
-\> Your cluster is in **Asleep** state (but is waking up).
+\> Your cluster is in **_Asleep_** state (but is waking up).
 
 ---
 
-### Step 5: Back to Awake State
+### Step 5: Back to _Awake_ State
 
 <img src="/rsc/flow/Flow5.mvp.drawio.png" class="custom-rounded" />
 
 Your cluster is in a normal state (like Step 1).
 
-\> Your cluster is in an **Awake** state.
+\> Your cluster is in an **_Awake_** state.

@@ -65,6 +65,23 @@
     border-radius: 5px;
 }
 
-#ayu, #navy, #rust{
+#navy, #rust, #ayu, #mdbook-theme-navy, #mdbook-theme-rust, #mdbook-theme-ayu{
     display: none;
+}
+
+hr{
+    margin: 10rem 0;
+    border-color: var(--icons);
+}
+
+h1{
+    margin-block-start: 12rem;
+}
+
+h2 {
+    margin-block-start: 7rem;
+}
+
+h3{
+    margin-block-start: 3rem;
 }
