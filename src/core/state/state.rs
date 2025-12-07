@@ -13,6 +13,8 @@ use crate::core::{
 };
 
 use lazy_static::lazy_static;
+use std::fmt::format;
+use std::num::NonZeroU32;
 use std::{
     collections::HashMap,
     sync::Mutex,
@@ -29,7 +31,7 @@ lazy_static! {
 
 //pub const ANNOTATION_STORE_STATE_KEY: &str = "store.state";
 
-const MAX_SLEEPINESS_DURATION: Duration = Duration::new(15, 0);
+pub static SLEEPINESS_DURATION: std::sync::OnceLock<Duration> = std::sync::OnceLock::new();
 
 #[derive(Debug)]
 pub struct State {
@@ -103,12 +105,16 @@ impl State {
                 }
                 (NotificationKind::NoActivity, NotificationKind::NoActivity) => {
                     let sleepiness_duration = notification.timestamp - state.since.timestamp;
-                    if sleepiness_duration >= MAX_SLEEPINESS_DURATION
+                    let max_sleepiness_duration = match SLEEPINESS_DURATION.get() {
+                        Some(s) => *s,
+                        None => panic!("SLEEPINESS_DURATION should be set a this step"),
+                    };
+                    if sleepiness_duration >= max_sleepiness_duration
                         && state.kind != StateKind::Asleep
                     {
                         // The application has been in sleepiness mode for too long; it must set asleep.
                         debug!(
-                            "Sleepiness duration exceeded: maximum sleepiness duration is {MAX_SLEEPINESS_DURATION:?}s, but the state was in this condition {sleepiness_duration:?}s."
+                            "Sleepiness duration exceeded: maximum sleepiness duration is {max_sleepiness_duration:?}s, but the state was in this condition {sleepiness_duration:?}s."
                         );
                         info!("State change > Asleep");
                         state.kind = StateKind::Asleep;
@@ -176,12 +182,12 @@ async fn process(uuid: Uuid) {
         .unwrap();
 }
 
-pub async fn create_schedule() -> JobScheduler {
+pub async fn create_schedule(refresh_interval: NonZeroU32) -> JobScheduler {
     let sched = JobScheduler::new().await.unwrap();
 
     sched
         .add(
-            Job::new_async("1/5 * * * * *", |uuid, mut l| {
+            Job::new_async(format!("1/{refresh_interval} * * * * *"), |uuid, mut l| {
                 Box::pin(async move {
                     {
                         process(Uuid::new_v4()).await
