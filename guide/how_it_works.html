@@ -27,7 +27,7 @@
         <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
 
         <!-- Custom theme stylesheets -->
-        <link rel="stylesheet" href="../theme/custom-7f8938e5.css">
+        <link rel="stylesheet" href="../theme/custom-8d6a5ce1.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "coal";
-            window.path_to_searchindex_js = "../searchindex-67d60cf0.js";
+            window.path_to_searchindex_js = "../searchindex-279961b2.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-3948d750.js"></script>
+        <script src="../toc-6b8b3150.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -175,39 +175,39 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="how-it-works"><a class="header" href="#how-it-works">How It Works</a></h1>
-<h2 id="step-1-awake-state"><a class="header" href="#step-1-awake-state">Step 1 Awake State</a></h2>
+<h2 id="step-1-awake-state"><a class="header" href="#step-1-awake-state">Step 1: <em>Awake</em> State</a></h2>
 <img src="/rsc/flow/Flow1.mvp.drawio.png" class="custom-rounded" />
 <p>Your cluster <strong>receives traffic</strong>. Kubesleeper detects this activity.</p>
-<p>&gt; Your cluster is in an <strong>Awake</strong> state.</p>
+<p>&gt; Your cluster is in an <em><strong>Awake</strong></em> state.</p>
 <hr>
-<h2 id="step-2-sleepiness-state"><a class="header" href="#step-2-sleepiness-state">Step 2: Sleepiness State</a></h2>
+<h2 id="step-2-sleepiness-state"><a class="header" href="#step-2-sleepiness-state">Step 2: <em>Sleepiness</em> State</a></h2>
 <img src="/rsc/flow/Flow2.mvp.drawio.png" class="custom-rounded" />
-<p>Your cluster <strong>stops receiving traffic</strong>. Kubesleeper waits a bit to check if the lack of activity is just temporary or if it should transition your cluster to an <strong>Asleep</strong> state.</p>
-<p>&gt; Your cluster is in a <strong>Sleepiness</strong> state.</p>
+<p>Your cluster <strong>stops receiving traffic</strong>. Kubesleeper waits a bit to check if the lack of activity is just temporary or if it should transition your cluster to an <strong><em>Asleep</em></strong> state.</p>
+<p>&gt; Your cluster is in a <em><strong>Sleepiness</strong></em> state.</p>
 <hr>
-<h3 id="step-3-asleep-state---scaling-down"><a class="header" href="#step-3-asleep-state---scaling-down">Step 3: Asleep State - Scaling Down</a></h3>
+<h2 id="step-3-asleep-state---scaling-down"><a class="header" href="#step-3-asleep-state---scaling-down">Step 3: <em>Asleep</em> State - Scaling Down</a></h2>
 <img src="/rsc/flow/Flow3.mvp.drawio.png" class="custom-rounded" />
 <p>Your cluster has <strong>not received any traffic</strong> for a certain duration. Kubesleeper will set your cluster <strong>off</strong>, which means:</p>
 <ul>
-<li>Load resources (<strong>Deployments</strong>) are turned off ($<code>replicas: 0</code>$).</li>
+<li>Load resources (<strong>Deployments</strong>) are turned off (<code>replicas: 0</code>).</li>
 <li><strong>Services</strong> redirect traffic to Kubesleeper instead of their normal load resources.</li>
 </ul>
-<p>&gt; Your cluster is in an <strong>Asleep</strong> state.</p>
+<p>&gt; Your cluster is in an <strong><em>Asleep</em></strong> state.</p>
 <hr>
-<h3 id="step-4-asleep-state---scaling-up"><a class="header" href="#step-4-asleep-state---scaling-up">Step 4: Asleep State - Scaling Up</a></h3>
+<h3 id="step-4-asleep-state---scaling-up"><a class="header" href="#step-4-asleep-state---scaling-up">Step 4: <em>Asleep</em> State - Scaling Up</a></h3>
 <img src="/rsc/flow/Flow4.mvp.drawio.png" class="custom-rounded" />
 <p>Your cluster <strong>receives new traffic</strong>. This traffic has been redirected to Kubesleeper because there are no resources currently handling it. Kubesleeper will then <strong>turn on</strong> all resources. Since it can take a short amount of time (a few seconds) for your pods to become fully operational, Kubesleeper sends a <strong>waiting page</strong> to the users.</p>
 <p>Turning on the cluster means:</p>
 <ul>
-<li>Load resources (<strong>Deployments</strong>) are turned on ($<code>replicas: {same number as when they were turned off}</code>$).</li>
+<li>Load resources (<strong>Deployments</strong>) are turned on (<code>replicas: {same number as when they were turned off}</code>).</li>
 <li><strong>Services</strong> redirect the traffic back to their normal load resources.</li>
 </ul>
-<p>&gt; Your cluster is in <strong>Asleep</strong> state (but is waking up).</p>
+<p>&gt; Your cluster is in <strong><em>Asleep</em></strong> state (but is waking up).</p>
 <hr>
-<h3 id="step-5-back-to-awake-state"><a class="header" href="#step-5-back-to-awake-state">Step 5: Back to Awake State</a></h3>
+<h3 id="step-5-back-to-awake-state"><a class="header" href="#step-5-back-to-awake-state">Step 5: Back to <em>Awake</em> State</a></h3>
 <img src="/rsc/flow/Flow5.mvp.drawio.png" class="custom-rounded" />
 <p>Your cluster is in a normal state (like Step 1).</p>
-<p>&gt; Your cluster is in an <strong>Awake</strong> state.</p>
+<p>&gt; Your cluster is in an <strong><em>Awake</em></strong> state.</p>
 
                     </main>
 
