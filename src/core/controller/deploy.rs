@@ -7,11 +7,15 @@ use kube::{
 use serde::Serialize;
 use tracing::{debug, info};
 
+use crate::core::controller::deploy;
+use crate::core::state::StateError::Controller;
 use crate::core::{
     controller::{constantes::*, error},
     state::state_kind::StateKind,
 };
-use std::{collections::BTreeMap, fmt};
+use rocket::futures::future::err;
+use std::time::Duration;
+use std::{collections::BTreeMap, fmt, thread};
 
 #[derive(Serialize)]
 pub struct Deploy {
@@ -158,22 +162,24 @@ impl Deploy {
         self.replicas = self
             .store_replicas
             .ok_or(error::ResourceParse::MissingValue {
-                id: format!("{}/{}", self.name, self.namespace),
+                id: format!("{}/{}", self.namespace, self.name),
                 value: format!(
                     "{}{}",
                     KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_REPLICAS_KEY
                 ),
             })?;
         self.store_state = Some(StateKind::Awake);
-        self.patch().await
+        self.patch().await?;
+
+        self.wait_ready().await
     }
 
     pub async fn sleep(&mut self) -> Result<(), error::Controller> {
         if self.store_state == Some(StateKind::Asleep) {
             debug!(
                 "State of deployment '{}/{}' already marked as '{}', skipping sleep action",
-                self.name,
                 self.namespace,
+                self.name,
                 StateKind::Asleep.to_string()
             );
             return Ok(());
@@ -220,7 +226,7 @@ impl Deploy {
                 )?;
                 debug!(
                     "kubesleeper deployment found : {}/{} ({})",
-                    ks.name, ks.namespace, ks.uid
+                    ks.namespace, ks.name, ks.uid
                 );
                 Ok(ks)
             }
@@ -248,7 +254,7 @@ impl Deploy {
         for mut deploy in deploys {
             debug!(
                 "Set deployment {}/{} {:?}",
-                deploy.name, deploy.namespace, state
+                deploy.namespace, deploy.name, state
             );
             match state {
                 StateKind::Asleep => deploy.sleep().await?,
@@ -257,7 +263,72 @@ impl Deploy {
         }
         Ok(())
     }
+
+    async fn is_ready(&self) -> Result<bool, error::Controller> {
+        let id = format!("{}/{}", self.namespace, self.name);
+
+        let deploy = Self::get_all_k8s_deployments(Some(KUBESLEEPER_NAMESPACE.get().unwrap()))
+            .await?
+            .into_iter()
+            .find(|deploy| self.uid == ResourceExt::uid(deploy).unwrap_or_default())
+            .ok_or(error::Controller::RetrieveK8S {
+                id: format!("{id}"),
+            })?;
+
+        let current_ready_replicas = deploy
+            .status
+            .ok_or(error::ResourceParse::MissingValue {
+                id: format!("{id}"),
+                value: "status".to_string(),
+            })?
+            .ready_replicas.unwrap_or(-1); // Prevent case where store_replicas is 0
+
+        let store_replicas = self.store_replicas.unwrap_or_default();
+
+        match store_replicas - current_ready_replicas {
+            0 => {
+                info!("Deploy {id} just woke up.");
+                Ok(true)
+            }
+            _ => {
+                info!(
+                    "Deploy {id} is waking up. Waiting for replicas to be ready : {current_ready_replicas}/{store_replicas}",
+                );
+                Ok(false)
+            }
+        }
+    }
+
+    pub async fn wait_ready(&self) -> Result<(), error::Controller> {
+        for i in 0_u32..16 {
+            if self.is_ready().await? {
+                return Ok(());
+            }
+            tokio::time::sleep(Duration::from_secs(2_u64.pow(i))).await;
+        }
+
+        Err(error::Controller::MaxWaitingWakeTime {
+            id: format!("{}/{}", self.namespace, self.name),
+        })
+    }
 }
+
+// enum Ready {
+//     True,
+//     False(i32),
+// }
+
+// pub async fn is_all_deploys_ready(deploys: Vec<Deploy>) -> Result<bool, error::Controller> {
+//     let mut all_deploys_ready = true;
+//     for deploy in deploys {
+//         match deploy.is_ready().await? {
+//             Ready::True => (),
+//             _ => {all_deploys_ready = false; info!("Deploy {}/{} is waking up.", deploy.namespace, deploy.name);}
+//         }
+//     }
+//
+//     Ok(all_deploys_ready)
+// }
 
 impl fmt::Display for Deploy {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

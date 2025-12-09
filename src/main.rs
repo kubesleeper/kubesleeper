@@ -62,8 +62,9 @@ pub enum ResourceKind {
 enum Manual {
     /// Set a specific Deployment or Service to the desired state
     SetDeploy {
-        /// the kube resournce id (like {name}/{namespace}) to target,
+        /// the kube resournce id (like {namespace}/{name}) to target,
         /// namespace 'default' will be used if id is simply {name}
+        #[arg(value_name("NAMESPACE/NAME"))]
         resource_id: String,
 
         /// The target state to which the resource will be set
@@ -72,8 +73,9 @@ enum Manual {
 
     /// Set a specific Deployment or Service to the desired state
     SetService {
-        /// the kube resournce id like {name}/{namespace},
+        /// the kube resournce id like {namespace}/{name},
         /// namespace 'default' will be used if id is simply {name}
+        #[arg(value_name("NAMESPACE/NAME"))]
         resource_id: String,
 
         /// The target state to which the resource will be set
@@ -171,9 +173,9 @@ async fn process() -> Result<(), Error> {
             Manual::SetDeploy { resource_id, state }
             | Manual::SetService { resource_id, state } => {
                 set_kubesleeper_namespace().await?;
-                let (rsc_name, rsc_ns) =
-                    if let Some((rsc_name, rsc_ns)) = resource_id.split_once('/') {
-                        (rsc_name, rsc_ns)
+                let (rsc_ns, rsc_name) =
+                    if let Some((rsc_ns, rsc_name)) = resource_id.split_once('/') {
+                        (rsc_ns, rsc_name)
                     } else {
                         (resource_id.as_str(), "default")
                     };
@@ -182,7 +184,7 @@ async fn process() -> Result<(), Error> {
                     "Set '{}' deployment '{}' of namespace '{}'",
                     state,
                     rsc_name,
-                    rsc_ns
+                    rsc_ns,
                 );
 
                 let missing_target_message =

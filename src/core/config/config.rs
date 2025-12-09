@@ -83,21 +83,20 @@ pub fn parse(path: PathBuf) -> Result<Config, ConfigError> {
         e => Err(ConfigError::InvalidFileExtension(e.to_string())),
     }?;
 
-    let file = match std::fs::File::open(&path){
+    let file = match std::fs::File::open(&path) {
         Ok(f) => Ok(Some(f)),
         Err(e) => match e.kind() {
-                ErrorKind::NotFound => Ok(None), 
-                _ => Err(e), 
-        }
-    }.map_err(|err| ConfigError::IOError { path, err })?;
-    
+            ErrorKind::NotFound => Ok(None),
+            _ => Err(e),
+        },
+    }
+    .map_err(|err| ConfigError::IOError { path, err })?;
+
     let config: Config = if let Some(file) = file {
         serde_yaml::from_reader(file)?
     } else {
         Config::default()
     };
-    
-    
 
     Ok(config)
 }

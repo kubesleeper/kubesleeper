@@ -1,6 +1,6 @@
-use tracing::level_filters::LevelFilter;
-use tracing_subscriber::{fmt, layer::SubscriberExt};
 use std::io::{self, Write};
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::{layer::SubscriberExt};
 
 pub static VERBOSE_MODE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
 pub static HUMAN_READABLE_MODE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
@@ -47,7 +47,6 @@ pub fn init_logger() -> Result<(), error::Logger> {
             .with_level(true)
             .init();
     } else {
-        
         tracing_subscriber::fmt()
             .json()
             .with_env_filter(filter)

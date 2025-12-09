@@ -32,6 +32,12 @@ pub mod error {
         #[error("Failed to parse kube resource : {0}")]
         ResourceParse(#[from] ResourceParse),
 
+        #[error("Failed to retrieve the k8S objects based on the uid: {id}")]
+        RetrieveK8S { id: String },
+
+        #[error("Deploy {id} took too much time to be waken up")]
+        MaxWaitingWakeTime { id: String },
+
         #[allow(dead_code)]
         #[error("SerdeJsonError : {0}")]
         SerdeJsonError(#[from] serde_json::Error),
@@ -40,18 +46,18 @@ pub mod error {
         #[error("StateKindError : {0}")]
         StateKindError(String),
 
-        #[error("No kubesleeper deployment found during deploy parsing.")]
+        #[error("No kubesleeper deployment found during deploy parsing")]
         MissingKubesleeperDeploy,
 
-        #[error("Found {0} kubesleeper deployments during deploy parsing.")]
+        #[error("Found {0} kubesleeper deployments during deploy parsing")]
         TooMuchKubesleeperDeploy(usize),
     }
 
     #[derive(Debug, thiserror::Error)]
     pub enum ResourceParse {
-        #[error("Resource '{id}' : Required value '{value}' is missing on.")]
+        #[error("Resource '{id}' : Required value '{value}' is missing on")]
         MissingValue {
-            /// Resource identifier (like "{name}/{namespace}")
+            /// Resource identifier (like "{namespace}/{name}")
             id: String,
             /// name of the missing value
             value: String,
