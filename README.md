@@ -27,6 +27,11 @@ Advantages of kubesleeper:
 - **Safe by Design** – Performs checks before any action, avoids flapping, and never deletes or recreates resources.
 
 
+## Distributions
+
+- [images](https://github.com/kubesleeper/kubesleeper/pkgs/container/kubesleeper)
+- [releases](https://github.com/kubesleeper/kubesleeper/releases)
+
 
 <br><br>
 
