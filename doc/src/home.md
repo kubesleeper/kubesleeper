@@ -13,4 +13,10 @@ Advantage off kubesleeper :
 * **Very Lightweight :** Only one very small pod to manage any cluster size 
 * **No Proxy :** Use the k8s api, does not interfere with your Kubernetes resources
 * **Respect Your Scaling :** Only turn _off_ or _on_ your resources and do not alter your own scaling logic. When _on_ your finer-grained scaling management rules are retained.
- 
+
+
+## Distributions
+
+- [images](https://github.com/kubesleeper/kubesleeper/pkgs/container/kubesleeper)
+- [releases](https://github.com/kubesleeper/kubesleeper/releases)
+
