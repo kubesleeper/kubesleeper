@@ -11,7 +11,9 @@ use crate::core::{
     resource::{constantes::*, error},
     state::state_kind::StateKind,
 };
+use std::time::Duration;
 use std::{collections::BTreeMap, fmt};
+use tracing::log::info;
 
 #[derive(Serialize)]
 pub struct Deploy {
@@ -137,7 +139,9 @@ impl super::TargetResource<'static> for Deploy {
         self.store_state = Some(StateKind::Awake);
 
         // patch related k8s resource
-        self.patch().await
+        self.patch().await?;
+
+        self.wait_ready().await
     }
 
     async fn sleep(&mut self) -> Result<(), error::Resource> {
@@ -247,6 +251,53 @@ impl Deploy {
             .into_iter()
             .next()
             .ok_or(error::Resource::MissingKubesleeperDeploy)
+    }
+
+    async fn is_ready(&self) -> Result<bool, error::Resource> {
+        let id = format!("{}/{}", self.namespace, self.name);
+
+        let current_ready_replicas = self
+            .get_k8s_resource()
+            .await?
+            .status
+            .ok_or(error::ResourceParse::MissingValue {
+                id: format!("{id}"),
+                value: "status".to_string(),
+            })?
+            .ready_replicas
+            .unwrap_or_default();
+        let store_replicas = self.store_replicas.unwrap_or_default();
+
+        match store_replicas - current_ready_replicas {
+            0 => {
+                info!("Deploy {id} just woke up.");
+                Ok(true)
+            }
+            _ => {
+                info!(
+                    "Deploy {id} is waking up. Waiting for replicas to be ready : {current_ready_replicas}/{store_replicas}",
+                );
+                Ok(false)
+            }
+        }
+    }
+
+    pub async fn wait_ready(&self) -> Result<(), error::Resource> {
+        let mut total_duration = 0;
+        for i in 0_u32..1000 {
+            if self.is_ready().await? {
+                return Ok(());
+            }
+
+            let duration = 100 * 2_u64.pow([i, 7].into_iter().min().expect("Couldn't be empty"));
+            tokio::time::sleep(Duration::from_millis(duration)).await;
+            total_duration += duration;
+        }
+
+        Err(error::Resource::MaxWaitingWakeTime {
+            id: format!("{}", self.id),
+            max_waiting_time: total_duration,
+        })
     }
 }
 

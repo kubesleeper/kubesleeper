@@ -45,19 +45,23 @@ pub mod error {
         StateKindError(String),
 
         #[allow(dead_code)]
-        #[error("No kubesleeper deployment found during deploy parsing.")]
+        #[error("No kubesleeper deployment found during deploy parsing")]
         MissingKubesleeperDeploy,
 
         #[allow(dead_code)]
-        #[error("Found {0} kubesleeper deployments during deploy parsing.")]
+        #[error("Found {0} kubesleeper deployments during deploy parsing")]
         TooMuchKubesleeperDeploy(usize),
+
+        #[allow(dead_code)]
+        #[error("Max waiting time exceeded ({max_waiting_time}s) for deployment {id}")]
+        MaxWaitingWakeTime { id: String, max_waiting_time: u64 },
     }
 
     #[derive(Debug, thiserror::Error)]
     pub enum ResourceParse {
-        #[error("Resource '{id}' : Required value '{value}' is missing on.")]
+        #[error("Resource '{id}' : Required value '{value}' is missing on")]
         MissingValue {
-            /// Resource identifier (like "{name}/{namespace}")
+            /// Resource identifier (like "{namespace}/{name}")
             id: String,
             /// name of the missing value
             value: String,
