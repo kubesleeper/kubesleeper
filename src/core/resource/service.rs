@@ -1,6 +1,7 @@
 use crate::core::resource::TargetResource;
 use crate::core::resource::{annotations::Annotations, constantes::*};
 
+use crate::core::state::StateError;
 use crate::core::state::state_kind::StateKind;
 
 use super::error;
@@ -266,20 +267,36 @@ impl TryFrom<&K8sService> for Service {
         let annotations = Annotations::from(raw_annotations.unwrap_or(&BTreeMap::default()));
 
         // --- store annotation
-        let store_state = annotations
-            .get(ANNOTATION_STORE_STATE_KEY)
-            .map(|raw_store_state| {
-                StateKind::try_from(raw_store_state).map_err(|_| {
-                    error::ResourceParse::MissingValue {
-                        id: format!("{id}"),
-                        value: format!(
-                            ".annotations.{}{}",
-                            KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY
-                        ),
-                    }
-                })
-            })
-            .transpose()?;
+        
+        let store_state = match annotations.get(ANNOTATION_STORE_STATE_KEY){
+            Some(raw_store_state) => {
+                StateKind::try_from(raw_store_state)
+                .map_err(|_| error::ResourceParse::ParseFailed { 
+                    id: format!("{id}"),
+                    value: format!(
+                        ".annotations.{}{}",
+                        KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY
+                    ),
+                    error: format!("The value {raw_store_state} can't be parsed")
+                }).map(|d| Some(d))
+            }
+            // if missing annotation
+            None => {
+                Ok(None)
+            }
+        }?;
+        
+        // let first_port = ports.iter().next().expect("ports must not be empty at this point : it has been parsed");
+        // let deduced = if first_port.port == KUBESLEEPER_SERVER_PORT{
+        //     // The port of the service is the kubesleeper one which is the comportement
+        //     Ok(StateKind::Asleep)
+        // } else {
+        //     Ok(StateKind::Awake)
+        // }.expect("Should be Ok() at this point, cause it's the case where the StateKind was deduced");
+        // debug!("Missing anotation {}{} for {id}, deduced as '{deduced:?}'",KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY);
+        // Ok(deduced)
+        
+
 
         let store_selector = annotations
             .get(ANNOTATION_STORE_SELECTOR_KEY)
