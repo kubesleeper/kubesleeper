@@ -13,9 +13,26 @@ spec:
         app: blue
     spec:
       containers:
-      - image: nginx
-        name: nginx
-        
+        - image: nginx
+          name: nginx
+# For testing awakening phase
+#          command: [ "/bin/sh", "-c" ]
+#          args:
+#            - |
+#              RANDOM_DELAY=$(
+#                head -c 1 /dev/urandom |
+#                od -An -t u1 |
+#                awk '{print ($1 % 30 + 30)}'
+#              );
+#              echo "Sleeping for $RANDOM_DELAY seconds (using /dev/urandom)...";
+#              sleep $RANDOM_DELAY;
+#              nginx -g 'daemon off;'
+#          readinessProbe:
+#            httpGet:
+#              path: /
+#              port: 80
+#            initialDelaySeconds: 0
+#            periodSeconds: 1
 ---
 
 apiVersion: v1

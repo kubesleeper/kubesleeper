@@ -14,6 +14,7 @@ use crate::core::resource::TargetResource;
 use crate::core::resource::deploy::Deploy;
 use crate::core::resource::service::Service;
 use crate::core::state::state::SLEEPINESS_DURATION;
+use crate::core::state::state_kind::StateKind;
 use crate::core::{
     ingress::error::IngressError,
     logger::{self, init_logger},
@@ -21,6 +22,7 @@ use crate::core::{
     server::error::ServerError,
     state::state::create_schedule,
 };
+
 mod msg;
 use crate::msg::{Message, error};
 
@@ -60,6 +62,33 @@ enum Commands {
 pub enum ResourceKind {
     Deploy,
     Service,
+}
+
+#[derive(Subcommand)]
+enum Manual {
+    /// Set a specific Deployment or Service to the desired state
+    SetDeploy {
+        /// the kube resournce id (like {namespace}/{name}) to target,
+        /// namespace 'default' will be used if id is simply {name}
+        #[arg(value_name("NAMESPACE/NAME"))]
+        resource_id: String,
+
+        /// The target state to which the resource will be set
+        state: StateKind,
+    },
+
+    /// Set a specific Deployment or Service to the desired state
+    SetService {
+        /// the kube resournce id like {namespace}/{name},
+        /// namespace 'default' will be used if id is simply {name}
+        #[arg(value_name("NAMESPACE/NAME"))]
+        resource_id: String,
+
+        /// The target state to which the resource will be set
+        state: StateKind,
+    },
+    /// Start web server alone (without kube resource management)
+    StartServer,
 }
 
 #[derive(Debug, thiserror::Error)]
