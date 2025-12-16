@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use crate::core::controller::constantes::*;
+use crate::core::resource::constantes::*;
 
 #[derive(Debug, Default)]
 pub struct Annotations(HashMap<String, String>);

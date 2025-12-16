@@ -1,6 +1,6 @@
 use crate::core::{
-    controller::{deploy::Deploy, service::Service},
     ingress::traefik::Traefik,
+    resource::{TargetResource, deploy::Deploy, service::Service},
 };
 
 use crate::core::{
@@ -134,15 +134,21 @@ impl State {
         match action {
             Some(StateKind::Asleep) => {
                 debug!("Making all Deploy 'Asleep'");
-                Deploy::change_all_state(StateKind::Asleep).await?;
-                debug!("Making all Service 'Asleep'");
-                Service::change_all_state(StateKind::Asleep).await?;
+                for deploy in Deploy::get_all().await?.iter_mut() {
+                    deploy.sleep().await?
+                }
+                for service in Service::get_all().await?.iter_mut() {
+                    service.sleep().await?
+                }
             }
             Some(StateKind::Awake) => {
                 debug!("Making all Deploy 'Awake'");
-                Deploy::change_all_state(StateKind::Awake).await?;
-                debug!("Making all Service 'Awake'");
-                Service::change_all_state(StateKind::Awake).await?;
+                for deploy in Deploy::get_all().await?.iter_mut() {
+                    deploy.wake().await?
+                }
+                for service in Service::get_all().await?.iter_mut() {
+                    service.wake().await?
+                }
             }
             None => {}
         };

@@ -5,20 +5,24 @@ use std::path::PathBuf;
 use std::process;
 
 use clap::{Parser, Subcommand, ValueEnum};
+use serde::Serialize;
 use tokio_cron_scheduler::JobSchedulerError;
 
 use crate::core::config;
+use crate::core::ingress::IngressType;
+use crate::core::resource::TargetResource;
+use crate::core::resource::deploy::Deploy;
+use crate::core::resource::service::Service;
 use crate::core::state::state::SLEEPINESS_DURATION;
 use crate::core::{
-    controller::{self, set_kubesleeper_namespace},
     ingress::error::IngressError,
     logger::{self, init_logger},
-    server,
+    resource, server,
     server::error::ServerError,
     state::state::create_schedule,
 };
 mod msg;
-use crate::msg::{Message, error, vvv};
+use crate::msg::{Message, error};
 
 #[derive(Parser)]
 #[command(name = "kubesleeper", version)]
@@ -44,6 +48,9 @@ enum Commands {
     /// start kubesleeper service
     Start,
 
+    /// Describe k8s status with
+    Status,
+
     #[command(subcommand)]
     /// Execute specific action
     Msg(Message),
@@ -58,7 +65,7 @@ pub enum ResourceKind {
 #[derive(Debug, thiserror::Error)]
 enum Error {
     #[error(transparent)]
-    ControllerError(#[from] controller::error::Controller),
+    ControllerError(#[from] resource::error::Resource),
 
     #[error(transparent)]
     MsgError(#[from] error::Msg),
@@ -93,20 +100,20 @@ async fn process() -> Result<(), Error> {
             SLEEPINESS_DURATION
                 .set(config.controller.sleepiness_duration)
                 .expect("Failed to set up sleepiness duration");
-
-            set_kubesleeper_namespace().await?;
             create_schedule(config.controller.refresh_interval)
                 .await
                 .start()
                 .await?;
             server::start(config.server.port).await?;
         }
-        Commands::Msg(e) => vvv(e, config).await?,
+        Commands::Msg(e) => msg::process(e, config).await?,
+        Commands::Status => status().await?,
     };
     Ok(())
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     match process() {
         Ok(_) => {}
         Err(e) => {
@@ -114,4 +121,42 @@ fn main() {
             process::exit(1);
         }
     }
+}
+
+async fn status() -> Result<(), Error> {
+    let deploys = Deploy::get_all().await?;
+
+    let services = Service::get_all().await?;
+
+    let traefik_metrics_pods = crate::core::ingress::traefik::Traefik::get_ingress_pods()
+        .await?
+        .into_iter()
+        .map(|pod| pod.metadata.name)
+        .collect::<Vec<_>>();
+
+    #[derive(Serialize)]
+    struct MetricPodsClass {
+        traefik: Vec<Option<String>>,
+    }
+
+    #[derive(Serialize)]
+    struct Status {
+        deploys: Vec<Deploy>,
+        services: Vec<Service>,
+        #[serde(rename = "metric pods")]
+        metric_pods: MetricPodsClass,
+    }
+
+    println!(
+        "{}",
+        serde_yaml::to_string(&Status {
+            deploys: deploys,
+            services: services,
+            metric_pods: MetricPodsClass {
+                traefik: traefik_metrics_pods
+            }
+        })
+        .unwrap_or_else(|e| format!("{e} : Status structure should be serealizable at this point"))
+    );
+    Ok(())
 }

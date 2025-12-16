@@ -1,22 +1,17 @@
 use clap::Subcommand;
-use serde::Serialize;
 use tracing::info;
 
 use crate::{
     Error,
     core::{
         config::Config,
-        controller::{deploy::Deploy, service::Service, set_kubesleeper_namespace},
-        ingress::IngressType,
+        resource::{TargetResource, deploy::Deploy, service::Service},
         state::state_kind::StateKind,
     },
 };
 
 #[derive(Subcommand)]
 pub enum Message {
-    /// Describe the kubesleeper cluster status
-    Status,
-
     /// Dump the computed configuration
     DumpConfig,
 
@@ -63,57 +58,32 @@ pub mod error {
     }
 }
 
-async fn status() -> Result<(), Error> {
-    set_kubesleeper_namespace().await?;
-    let deploys = crate::core::controller::deploy::Deploy::get_all_target().await?;
-
-    let services = crate::core::controller::service::Service::get_all_target("ks").await?;
-
-    let traefik_metrics_pods = crate::core::ingress::traefik::Traefik::get_ingress_pods()
-        .await?
-        .into_iter()
-        .map(|pod| pod.metadata.name)
-        .collect::<Vec<_>>();
-
-    #[derive(Serialize)]
-    struct MetricPodsClass {
-        traefik: Vec<Option<String>>,
-    }
-
-    #[derive(Serialize)]
-    struct Status {
-        deploys: Vec<Deploy>,
-        services: Vec<Service>,
-        #[serde(rename = "metric pods")]
-        metric_pods: MetricPodsClass,
-    }
-
-    println!(
-        "{}",
-        serde_yaml::to_string(&Status {
-            deploys: deploys,
-            services: services,
-            metric_pods: MetricPodsClass {
-                traefik: traefik_metrics_pods
-            }
-        })
-        .unwrap_or_else(|e| format!("{e} : Status structure should be serealizable at this point"))
-    );
-    Ok(())
-}
-
 async fn set(state: StateKind) -> Result<(), Error> {
-    set_kubesleeper_namespace().await?;
-    info!("Making all Deploy '{state}'");
-    Deploy::change_all_state(state).await?;
-    info!("Making all Service '{state}'");
-    Service::change_all_state(state).await?;
+    info!("Making all Deploy and Service '{state}'");
+
+    match state {
+        StateKind::Asleep => {
+            for deploy in Deploy::get_all().await?.iter_mut() {
+                deploy.sleep().await?
+            }
+            for service in Service::get_all().await?.iter_mut() {
+                service.sleep().await?
+            }
+        }
+        StateKind::Awake => {
+            for deploy in Deploy::get_all().await?.iter_mut() {
+                deploy.wake().await?
+            }
+            for service in Service::get_all().await?.iter_mut() {
+                service.wake().await?
+            }
+        }
+    }
     Ok(())
 }
 
 async fn set_deploy(state: StateKind, resource_name: String) -> Result<(), Error> {
-    set_kubesleeper_namespace().await?;
-    let mut deploys = Deploy::get_all_target().await?;
+    let mut deploys = Deploy::get_all().await?;
     let target = deploys.iter_mut().find(|d| d.name == resource_name).ok_or(
         error::Msg::ResourceNotFound {
             resource_id: resource_name,
@@ -126,8 +96,7 @@ async fn set_deploy(state: StateKind, resource_name: String) -> Result<(), Error
     Ok(())
 }
 async fn set_service(state: StateKind, resource_name: String) -> Result<(), Error> {
-    set_kubesleeper_namespace().await?;
-    let mut services = Deploy::get_all_target().await?;
+    let mut services = Deploy::get_all().await?;
     let target = services
         .iter_mut()
         .find(|d| d.name == resource_name)
@@ -149,9 +118,8 @@ fn dump_config(config: Config) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn vvv(msg: Message, config: Config) -> Result<(), Error> {
+pub async fn process(msg: Message, config: Config) -> Result<(), Error> {
     match msg {
-        Message::Status => status().await,
         Message::Set { state } => set(state).await,
         Message::SetDeploy { resource_id, state } => set_deploy(state, resource_id).await,
         Message::SetService { resource_id, state } => set_service(state, resource_id).await,

@@ -1,6 +1,4 @@
-use tracing::info;
-
-use crate::core::controller::deploy::Deploy;
+use kube::Api;
 
 pub mod annotations;
 pub mod deploy;
@@ -14,23 +12,29 @@ pub mod constantes{
     pub const ANNOTATION_STORE_SELECTOR_KEY     : &str = "store.selectors";
     pub const ANNOTATION_STORE_PORTS_KEY        : &str = "store.ports";
     pub const KUBESLEEPER_SERVER_SELECTOR_KEY   : &str = "app";
+    pub const KUBESLLEPER_APP_NAME              : &str = "kubesleeper";
 
     pub const KUBESLEEPER_SERVER_SELECTOR_VALUE : &str = "kubesleeper";
+    #[allow(dead_code)]
     pub const KUBESLEEPER_SERVER_LABEL_KEY      : &str = "app";
+    #[allow(dead_code)]
     pub const KUBESLEEPER_SERVER_LABEL_VALUE    : &str = "kubesleeper";
     pub const KUBESLEEPER_SERVER_PORT           : i32 = 8000;
-    pub static KUBESLEEPER_NAMESPACE            : std::sync::OnceLock<String> = std::sync::OnceLock::new();
 }
 
 pub mod error {
     #[derive(Debug, thiserror::Error)]
-    pub enum Controller {
+    pub enum Resource {
         #[allow(dead_code)]
         #[error("KubeError : {0}")]
         KubeError(#[from] kube::Error),
 
         #[error("Failed to parse kube resource : {0}")]
         ResourceParse(#[from] ResourceParse),
+
+        #[allow(dead_code)]
+        #[error("Failed to retreive k8s resource {id} form parsed resource")]
+        K8sResourceNotFound { id: String },
 
         #[allow(dead_code)]
         #[error("SerdeJsonError : {0}")]
@@ -40,9 +44,11 @@ pub mod error {
         #[error("StateKindError : {0}")]
         StateKindError(String),
 
+        #[allow(dead_code)]
         #[error("No kubesleeper deployment found during deploy parsing.")]
         MissingKubesleeperDeploy,
 
+        #[allow(dead_code)]
         #[error("Found {0} kubesleeper deployments during deploy parsing.")]
         TooMuchKubesleeperDeploy(usize),
     }
@@ -69,13 +75,18 @@ pub mod error {
     }
 }
 
-pub async fn set_kubesleeper_namespace() -> Result<(), error::Controller> {
-    constantes::KUBESLEEPER_NAMESPACE
-        .set(Deploy::get_kubesleeper().await?.namespace)
-        .unwrap();
-    info!(
-        "kubesleeper working namespace detected as {}",
-        constantes::KUBESLEEPER_NAMESPACE.get().unwrap()
-    );
-    Ok(())
+pub trait TargetResource<'a>: std::fmt::Display {
+    type Resource: TryFrom<&'a Self::K8sResource, Error = error::Resource>;
+    type K8sResource: 'a;
+
+    async fn get_all() -> Result<Vec<Self::Resource>, error::Resource>;
+    async fn get_k8s_api(
+        namespace: Option<&str>,
+    ) -> Result<Api<Self::K8sResource>, error::Resource>;
+
+    async fn wake(&mut self) -> Result<(), error::Resource>; // uses patch
+    async fn sleep(&mut self) -> Result<(), error::Resource>; // uses patch
+    async fn patch(&self) -> Result<(), error::Resource>;
+    #[allow(dead_code)]
+    async fn get_k8s_resource(&self) -> Result<Self::K8sResource, error::Resource>;
 }
