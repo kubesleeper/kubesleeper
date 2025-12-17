@@ -1,0 +1,32 @@
+name: Discord notification
+
+on:
+  push:
+    branches:
+      - discord-action
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    continue-on-error: true
+
+    if: github.actor != 'kubesleeper ci bot'
+
+    steps:
+    - name: Sending message on discord
+      uses: sarisia/actions-status-discord@v1
+      with:
+        webhook: ${{ secrets.DISCORD_WEBHOOK }}
+        title: "Nouveau Push sur Main"
+
+        description: |
+          Auteur : **${{ github.actor }}**
+          Branche : **${{ github.ref_name }}**
+          Message : 
+          > *${{ github.event.head_commit.message }}*
+          
+          Voir les changements : [Détails du Push](${{ github.event.compare }})
+
+        color: "0x007ACC"
+        nodetail: true
