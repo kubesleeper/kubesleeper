@@ -79,11 +79,12 @@ pub mod error {
     }
 }
 
-pub trait TargetResource<'a>: std::fmt::Display {
-    type Resource: TryFrom<&'a Self::K8sResource, Error = error::Resource>;
+pub trait TargetResource<'a>:
+    std::fmt::Display + TryFrom<&'a Self::K8sResource, Error = error::Resource>
+{
     type K8sResource: 'a;
 
-    async fn get_all() -> Result<Vec<Self::Resource>, error::Resource>;
+    async fn get_all() -> Result<Vec<Self>, error::Resource>;
     async fn get_k8s_api(
         namespace: Option<&str>,
     ) -> Result<Api<Self::K8sResource>, error::Resource>;

@@ -112,7 +112,6 @@ impl TryFrom<&Deployment> for Deploy {
 }
 
 impl super::TargetResource<'static> for Deploy {
-    type Resource = Deploy;
     type K8sResource = Deployment;
 
     async fn wake(&mut self) -> Result<(), error::Resource> {
@@ -178,7 +177,7 @@ impl super::TargetResource<'static> for Deploy {
         return Ok(deployments);
     }
 
-    async fn get_all() -> Result<Vec<Self::Resource>, error::Resource> {
+    async fn get_all() -> Result<Vec<Self>, error::Resource> {
         let lp = ListParams::default()
             .match_any()
             .fields(&format!("metadata.name!={}", KUBESLLEPER_APP_NAME));
@@ -188,7 +187,7 @@ impl super::TargetResource<'static> for Deploy {
             .list(&lp)
             .await?
             .iter()
-            .map(|d| Deploy::try_from(d))
+            .map(|d| Self::try_from(d))
             .collect()
     }
 
