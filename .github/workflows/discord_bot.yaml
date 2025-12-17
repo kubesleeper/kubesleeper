@@ -1,0 +1,33 @@
+name: Discord notification
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  discord:
+    runs-on: ubuntu-latest
+
+    continue-on-error: true
+
+    if: github.actor != 'kubesleeper ci bot'
+
+    steps:
+    - name: Sending message on discord
+      uses: sarisia/actions-status-discord@v1
+      with:
+        # Webhook URLs can be retrieved from the settings of a specific Discord channel.
+        # Documentation: https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks
+        webhook: ${{ secrets.DISCORD_WEBHOOK }}
+        title: "Push on Main"
+
+        description: |
+          Author : **${{ github.actor }}**
+          Message : 
+          > *${{ github.event.head_commit.message }}*
+          
+          Changes : [Details](${{ github.event.compare }})
+
+        color: "0x007ACC"
+        nodetail: true
