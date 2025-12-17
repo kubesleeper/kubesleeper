@@ -6,7 +6,7 @@ on:
       - discord-action
 
 jobs:
-  build:
+  discord:
     runs-on: ubuntu-latest
 
     continue-on-error: true
