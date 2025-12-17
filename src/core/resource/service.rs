@@ -49,7 +49,6 @@ pub struct Service {
 }
 
 impl TargetResource<'static> for Service {
-    type Resource = Service;
     type K8sResource = K8sService;
 
     async fn wake(&mut self) -> Result<(), error::Resource> {
@@ -171,13 +170,13 @@ impl TargetResource<'static> for Service {
         return Ok(deployments);
     }
 
-    async fn get_all() -> Result<Vec<Self::Resource>, error::Resource> {
+    async fn get_all() -> Result<Vec<Self>, error::Resource> {
         Self::get_k8s_api(None)
             .await?
             .list(&ListParams::default())
             .await?
             .iter()
-            .map(|d| Self::Resource::try_from(d))
+            .map(|d| Self::try_from(d))
             .collect()
     }
 
