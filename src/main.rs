@@ -115,7 +115,6 @@ enum Error {
     ConfigError(#[from] config::ConfigError),
 }
 
-#[tokio::main]
 async fn process() -> Result<(), Error> {
     let cli = Cli::parse();
 
@@ -143,7 +142,7 @@ async fn process() -> Result<(), Error> {
 
 #[tokio::main]
 async fn main() {
-    match process() {
+    match process().await {
         Ok(_) => {}
         Err(e) => {
             eprintln!("Error : {}", e);
