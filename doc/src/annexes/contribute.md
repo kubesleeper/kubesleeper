@@ -38,5 +38,11 @@ Check `cargo run -- manual --help` to see the manual action you can do (useful f
 ### build source
 Use `cargo build --release` to build kubesleeper release.
 
+or
+
+`{ docker|podman } build --target binary-export --output type=local,dest=./dist .`
+
+To build with docker to have a working env (and to be iso with production) 
+
 ### build kubesleeper image
 use `{ docker | podman } build -t kubesleeper .` (regarding you image builder tool) to build kubesleeper release image.
