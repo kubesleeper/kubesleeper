@@ -18,6 +18,7 @@ RUN /usr/local/cargo/bin/minhtml --minify-css --minify-js static/waiting.html -o
 
 COPY Cargo.toml ./
 COPY src ./src
+RUN rustup target add x86_64-unknown-linux-musl
 RUN RUSTFLAGS="-D warnings" cargo build --release --target x86_64-unknown-linux-musl --color always
 
 # --- Export
