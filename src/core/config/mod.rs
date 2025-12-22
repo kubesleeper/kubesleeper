@@ -3,7 +3,7 @@ use std::num::{NonZeroU16, NonZeroU32};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 
 const DEFAULT_CONFIG_FILE_PATH: &str = "kubesleeper.yaml";
 
