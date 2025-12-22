@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "coal";
-            window.path_to_searchindex_js = "../searchindex-72451c25.js";
+            window.path_to_searchindex_js = "../searchindex-951494ce.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-c877dfc4.js"></script>
@@ -203,6 +203,9 @@ So it will serve you a brand new fresh dev namespace.</p>
 </blockquote>
 <h3 id="build-source"><a class="header" href="#build-source">build source</a></h3>
 <p>Use <code>cargo build --release</code> to build kubesleeper release.</p>
+<p>or</p>
+<p><code>{ docker|podman } build --target binary-export --output type=local,dest=./dist .</code></p>
+<p>To build with docker to have a working env (and to be iso with production)</p>
 <h3 id="build-kubesleeper-image"><a class="header" href="#build-kubesleeper-image">build kubesleeper image</a></h3>
 <p>use <code>{ docker | podman } build -t kubesleeper .</code> (regarding you image builder tool) to build kubesleeper release image.</p>
 
