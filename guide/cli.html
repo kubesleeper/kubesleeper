@@ -27,7 +27,7 @@
         <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
 
         <!-- Custom theme stylesheets -->
-        <link rel="stylesheet" href="../theme/custom-8d6a5ce1.css">
+        <link rel="stylesheet" href="../theme/custom-bf930394.css">
 
 
         <!-- Provide site root and default themes to javascript -->
@@ -35,7 +35,7 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "coal";
-            window.path_to_searchindex_js = "../searchindex-951494ce.js";
+            window.path_to_searchindex_js = "../searchindex-8f4b2598.js";
         </script>
         <!-- Start loading toc.js asap -->
         <script src="../toc-c877dfc4.js"></script>
@@ -175,7 +175,49 @@
                 <div id="mdbook-content" class="content">
                     <main>
                         <h1 id="kubesleeper-cli"><a class="header" href="#kubesleeper-cli">Kubesleeper CLI</a></h1>
-<p><em>Work in progress… Coming soon</em></p>
+<h2 id="global-options"><a class="header" href="#global-options">Global Options</a></h2>
+<p>Global options must be added at the beginning of the command</p>
+<p><code>kubesleeper &lt;global options&gt;</code></p>
+<p>These flags are universal and apply to all CLI actions and subcommands.</p>
+<ul>
+<li><code>-v</code> : verbose mode for logging</li>
+<li><code>-r | --readable-log</code> : Human readable mode for logging</li>
+<li><code>--config &lt;CONFIG&gt;</code> : Path to the kubesleeper YAML configuration file</li>
+</ul>
+<hr>
+<h2 id="start"><a class="header" href="#start">start</a></h2>
+<p><code>kubesleeper start</code></p>
+<p>This is the primary function of the CLI and serves as the entrypoint for the Kubesleeper image.</p>
+<p>Running this command initiates the nominal behavior and launches the main <a href="./how_it_works.html">Kubesleeper process</a>.</p>
+<hr>
+<h2 id="status"><a class="header" href="#status">status</a></h2>
+<p><code>kubesleeper status</code></p>
+<p>Performs a comprehensive scan and validation of your cluster. It generates a report showing exactly how Kubesleeper perceives your environment.</p>
+<p>This is a vital tool for ensuring your configuration meets your needs—for example, verifying that specific resources are being correctly ignored.</p>
+<hr>
+<h2 id="msg"><a class="header" href="#msg">msg</a></h2>
+<p><code>kubesleeper msg &lt;COMMAND&gt;</code></p>
+<p>Used for advanced manual actions. This command is particularly useful for debugging and performing granular interventions within the cluster.</p>
+<h3 id="dump-config"><a class="header" href="#dump-config">dump-config</a></h3>
+<p><code>kubesleeper msg dump-config</code></p>
+<p>Dump the computed configuration</p>
+<h3 id="set"><a class="header" href="#set">set</a></h3>
+<p><code>kubesleeper msg set-rsc &lt;RESOURCE_TYPE&gt; &lt;NAMESPACE/NAME&gt; &lt;STATE&gt;</code></p>
+<p>Set namespace to the desired state</p>
+<ul>
+<li><code>STATE</code> : The target state to which the cluster will be set [possible values: asleep, awake]</li>
+</ul>
+<h3 id="set-rsc"><a class="header" href="#set-rsc">set-rsc</a></h3>
+<p><code>kubesleeper msg set-rsc &lt;RESOURCE_TYPE&gt; &lt;NAMESPACE/NAME&gt; &lt;STATE&gt;</code></p>
+<p>Set a specific Deployment or Service to the desired state</p>
+<ul>
+<li><code>RESOURCE_TYPE</code>: the kubernetes shortname of resource [possible values: svc, deploy]</li>
+<li><code>NAMESPACE/NAME</code>: the kube resournce id like {namespace}/{name}, namespace ‘default’ will be used if id is simply {name}</li>
+<li><code>STATE</code>: The target state to which the resource will be set [possible values: asleep, awake]</li>
+</ul>
+<h3 id="start-server"><a class="header" href="#start-server">start-server</a></h3>
+<p><code>kubesleeper msg start-server</code></p>
+<p>Start web server alone (without kubernetes resource management)</p>
 
                     </main>
 

@@ -44,7 +44,7 @@
   --icons-hover: #ffffff;
   --searchbar-bg: hsl(0, 0%, 7%);
   --searchbar-fg: #ffffff;
-  --quote-bg: hsl(0, 0%, 7%);
+  --quote-bg: hsl(0, 0%, 10%);
   --quote-border: #353535;
   --theme-popup-bg: hsl(0, 0%, 0%);
   
@@ -71,7 +71,7 @@
 
 hr{
     margin: 10rem 0;
-    border-color: var(--icons);
+    border-color: var(--quote-border);
 }
 
 h1{
