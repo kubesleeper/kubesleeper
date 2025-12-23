@@ -1,5 +1,5 @@
 [book]
-authors = ["eloi-menaud"]
+authors = ["kubesleeper contributors"]
 language = "en"
 src = "src"
 title = "Kubesleeper"

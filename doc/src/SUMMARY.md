@@ -13,3 +13,6 @@
 -----------
 [Contribute](./annexes/contribute.md)
 [Roadmap](./annexes/roadmap.md)
+[Common errors](./annexes/common_errors.md)
+
+
