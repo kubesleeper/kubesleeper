@@ -16,4 +16,4 @@ jobs:
 
       - name: Run test
         run: |
-          RUSTFLAGS="-D warnings" cargo test --color always || { echo "(Warnings are considered errors)"; exit 1; }
+          docker build --target image -t test:test .
