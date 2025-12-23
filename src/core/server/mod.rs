@@ -2,9 +2,7 @@ use rocket::{fs::FileServer, routes};
 use std::num::NonZeroU16;
 use tracing::info;
 
-use crate::core::{
-    server::routes::{apps, static_catcher, wait},
-};
+use crate::core::server::routes::{apps, static_catcher, wait};
 
 mod routes;
 
