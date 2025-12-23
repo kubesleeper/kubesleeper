@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubesleeper
+  labels:
+    app: kubesleeper
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kubesleeper
+  template:
+    metadata:
+      labels:
+        app: kubesleeper
+    spec:
+      containers:
+        - image: ghcr.io/kubesleeper/kubesleeper:0.14.0
+          name: kubesleeper
+          command: [ "/bin/sh", "-c", "sleep infinty" ]
+          ports:
+          - containerPort: 8000
