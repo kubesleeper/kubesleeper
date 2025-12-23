@@ -1,4 +1,4 @@
-use clap::Subcommand;
+use clap::{Subcommand, ValueEnum};
 use tracing::info;
 
 use crate::{
@@ -17,23 +17,15 @@ pub enum Message {
 
     /// Set namespace to the desired state
     Set {
-        /// The target state to which the namespace will be set
+        /// The target state to which the cluster will be set
         state: StateKind,
     },
 
     /// Set a specific Deployment or Service to the desired state
-    SetDeploy {
-        /// the kube resournce id (like {namespace}/{name}) to target,
-        /// namespace 'default' will be used if id is simply {name}
-        #[arg(value_name("NAMESPACE/NAME"))]
-        resource_id: String,
+    SetRsc {
+        /// the kubernetes shortname of resource
+        resource_type: ResourceType,
 
-        /// The target state to which the resource will be set
-        state: StateKind,
-    },
-
-    /// Set a specific Deployment or Service to the desired state
-    SetService {
         /// the kube resournce id like {namespace}/{name},
         /// namespace 'default' will be used if id is simply {name}
         #[arg(value_name("NAMESPACE/NAME"))]
@@ -60,6 +52,7 @@ pub mod error {
 
 async fn set(state: StateKind) -> Result<(), Error> {
     info!("Making all Deploy and Service '{state}'");
+    Deploy::check_kubesleeper().await?;
 
     match state {
         StateKind::Asleep => {
@@ -82,31 +75,34 @@ async fn set(state: StateKind) -> Result<(), Error> {
     Ok(())
 }
 
-async fn set_deploy(state: StateKind, resource_name: String) -> Result<(), Error> {
-    let mut deploys = Deploy::get_all().await?;
-    let target = deploys.iter_mut().find(|d| d.name == resource_name).ok_or(
-        error::Msg::ResourceNotFound {
-            resource_id: resource_name,
-        },
-    )?;
-    match state {
-        StateKind::Asleep => target.sleep().await?,
-        StateKind::Awake => target.wake().await?,
-    };
-    Ok(())
+#[derive(Debug, Clone, ValueEnum)]
+pub enum ResourceType {
+    Svc,
+    Deploy,
 }
-async fn set_service(state: StateKind, resource_name: String) -> Result<(), Error> {
-    let mut services = Deploy::get_all().await?;
-    let target = services
+
+async fn set_rsc_process<T>(state: StateKind, resource_name: String) -> Result<(), Error>
+where
+    T: TargetResource<'static>,
+{
+    // On garde la vérification commune
+    Deploy::check_kubesleeper().await?;
+
+    // On récupère les ressources du type T
+    let mut resources = T::get_all().await?;
+
+    let target = resources
         .iter_mut()
-        .find(|d| d.name == resource_name)
+        .find(|r| r.id() == resource_name)
         .ok_or(error::Msg::ResourceNotFound {
             resource_id: resource_name,
         })?;
+
     match state {
         StateKind::Asleep => target.sleep().await?,
         StateKind::Awake => target.wake().await?,
     };
+
     Ok(())
 }
 
@@ -121,8 +117,14 @@ fn dump_config(config: Config) -> Result<(), Error> {
 pub async fn process(msg: Message, config: Config) -> Result<(), Error> {
     match msg {
         Message::Set { state } => set(state).await,
-        Message::SetDeploy { resource_id, state } => set_deploy(state, resource_id).await,
-        Message::SetService { resource_id, state } => set_service(state, resource_id).await,
+        Message::SetRsc {
+            resource_type,
+            resource_id,
+            state,
+        } => match resource_type {
+            ResourceType::Svc => set_rsc_process::<Service>(state, resource_id).await,
+            ResourceType::Deploy => set_rsc_process::<Deploy>(state, resource_id).await,
+        },
         Message::StartServer => crate::core::server::start(config.server.port)
             .await
             .map_err(|e| e.into()),

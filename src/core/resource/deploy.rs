@@ -17,26 +17,18 @@ use tracing::log::info;
 
 #[derive(Serialize)]
 pub struct Deploy {
-    pub uid: String,
     pub id: String,
     pub name: String,
     pub namespace: String,
     pub replicas: i32,
 
-    #[serde(rename = "stored state")]
-    pub store_state: Option<StateKind>,
-    #[serde(rename = "stored replicas")]
-    pub store_replicas: Option<i32>,
+    pub store_replicas: i32,
 }
 impl TryFrom<&Deployment> for Deploy {
     type Error = error::Resource;
 
     fn try_from(deploy: &Deployment) -> std::result::Result<Self, Self::Error> {
         // --- explicit data
-        let uid = ResourceExt::uid(deploy).ok_or(error::ResourceParse::MissingValue {
-            id: format!("?"),
-            value: "uid".to_string(),
-        })?;
 
         let name = deploy
             .name()
@@ -66,47 +58,39 @@ impl TryFrom<&Deployment> for Deploy {
         let annotations =
             super::annotations::Annotations::from(raw_annotations.unwrap_or(&BTreeMap::default()));
 
-        // state
-        let store_state = annotations
-            .get(ANNOTATION_STORE_STATE_KEY)
-            .map(|raw_store_state| {
-                StateKind::try_from(raw_store_state).map_err(|err| {
-                    error::ResourceParse::ParseFailed {
-                        id: format!("{id}"),
-                        value: format!(
-                            ".annotations.{}{}",
-                            KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY
-                        ),
-                        error: format!("{err}"),
-                    }
-                })
-            })
-            .transpose()?;
-
         // replicas
-        let store_replicas = annotations
-            .get(ANNOTATION_STORE_REPLICAS_KEY)
-            .map(|raw_store_replicas| {
-                raw_store_replicas
-                    .parse::<i32>()
-                    .map_err(|err| error::ResourceParse::ParseFailed {
-                        id: format!("{id}"),
-                        value: format!(
-                            ".annotations.{}{}",
-                            KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_STATE_KEY
-                        ),
-                        error: format!("{err}"),
+        let store_replicas = if replicas == 0 {
+            annotations
+                .get(ANNOTATION_STORE_REPLICAS_KEY)
+                .map(|raw_store_replicas| {
+                    raw_store_replicas.parse::<i32>().map_err(|err| {
+                        error::ResourceParse::ParseFailed {
+                            id: format!("{id}"),
+                            value: format!(
+                                ".annotations.{}{}",
+                                KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_REPLICAS_KEY
+                            ),
+                            error: format!("{err}"),
+                        }
                     })
-            })
-            .transpose()?;
+                })
+                .unwrap_or(Err(error::ResourceParse::MissingAnnotationInSleepState {
+                    id: format!("{id}"),
+                    annotation: format!(
+                        "{}{}",
+                        KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_REPLICAS_KEY
+                    ),
+                }))?
+        } else {
+            replicas
+        };
+
         Ok(Deploy {
-            uid,
             id,
             name,
             namespace,
             replicas,
             store_replicas,
-            store_state,
         })
     }
 }
@@ -114,9 +98,13 @@ impl TryFrom<&Deployment> for Deploy {
 impl super::TargetResource<'static> for Deploy {
     type K8sResource = Deployment;
 
+    fn is_asleep(&self) -> bool {
+        self.replicas == 0
+    }
+
     async fn wake(&mut self) -> Result<(), error::Resource> {
         // skip if resource as already a 'awake' stored state
-        if self.store_state == Some(StateKind::Awake) {
+        if !self.is_asleep() {
             debug!(
                 "State of deployment '{}' already marked as '{}', skipping sleep action",
                 self.id,
@@ -126,16 +114,7 @@ impl super::TargetResource<'static> for Deploy {
         }
 
         // edit resource to set it in a awake state
-        self.replicas = self
-            .store_replicas
-            .ok_or(error::ResourceParse::MissingValue {
-                id: format!("{}", self.id),
-                value: format!(
-                    "{}{}",
-                    KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_REPLICAS_KEY
-                ),
-            })?;
-        self.store_state = Some(StateKind::Awake);
+        self.replicas = self.store_replicas;
 
         // patch related k8s resource
         self.patch().await?;
@@ -145,7 +124,8 @@ impl super::TargetResource<'static> for Deploy {
 
     async fn sleep(&mut self) -> Result<(), error::Resource> {
         // skip if resource as already a 'asleep' stored state
-        if self.store_state == Some(StateKind::Asleep) {
+
+        if self.is_asleep() {
             debug!(
                 "State of deployment '{}' already marked as '{}', skipping sleep action",
                 self.id,
@@ -155,9 +135,8 @@ impl super::TargetResource<'static> for Deploy {
         }
 
         // edit resource to set it in a asleep state
-        self.store_replicas = Some(self.replicas);
+        self.store_replicas = self.replicas;
         self.replicas = 0;
-        self.store_state = Some(StateKind::Asleep);
 
         // patch related k8s resource
         self.patch().await
@@ -178,9 +157,10 @@ impl super::TargetResource<'static> for Deploy {
     }
 
     async fn get_all() -> Result<Vec<Self>, error::Resource> {
-        let lp = ListParams::default()
-            .match_any()
-            .fields(&format!("metadata.name!={}", KUBESLLEPER_APP_NAME));
+        let lp = ListParams::default().match_any().fields(&format!(
+            "metadata.name!={},metadata.namespace!=kube-system",
+            KUBESLLEPER_APP_NAME
+        ));
 
         Self::get_k8s_api(None)
             .await?
@@ -198,10 +178,7 @@ impl super::TargetResource<'static> for Deploy {
             },
             "metadata": {
                 "annotations": {
-                    format!("{KUBESLEEPER_ANNOTATION_PREFIX}{ANNOTATION_STORE_STATE_KEY}"): &self.store_state,
-                    format!("{KUBESLEEPER_ANNOTATION_PREFIX}{ANNOTATION_STORE_REPLICAS_KEY}"): self.store_replicas
-                        .expect("Logically store_replicas must be a Some at this stage")
-                        .to_string()
+                    format!("{KUBESLEEPER_ANNOTATION_PREFIX}{ANNOTATION_STORE_REPLICAS_KEY}"): self.store_replicas.to_string()
                 }
             }
         });
@@ -230,63 +207,41 @@ impl super::TargetResource<'static> for Deploy {
                 id: self.id.clone(),
             })
     }
+
+    fn id(&self) -> String {
+        return self.id.clone();
+    }
 }
 
 use super::TargetResource;
 
 impl Deploy {
-    #[allow(dead_code)]
-    pub async fn check_kubesleeper() -> Result<Deployment, error::Resource> {
-        let lp = ListParams::default()
-            .match_any()
-            .fields(&format!("metadata.name={}", KUBESLLEPER_APP_NAME));
-
-        let kubesleeper = Self::get_k8s_api(None).await?.list(&lp).await?;
-        let nb_kubesleeper = kubesleeper.iter().count();
-        if nb_kubesleeper > 1 {
-            return Err(error::Resource::TooMuchKubesleeperDeploy(nb_kubesleeper));
-        };
-        kubesleeper
-            .into_iter()
-            .next()
-            .ok_or(error::Resource::MissingKubesleeperDeploy)
-    }
-
-    async fn is_ready(&self) -> Result<bool, error::Resource> {
-        let id = format!("{}/{}", self.namespace, self.name);
-
-        let current_ready_replicas = self
+    pub async fn get_ready_replicas_count(&self) -> Result<i32, error::Resource> {
+        Ok(self
             .get_k8s_resource()
             .await?
             .status
             .ok_or(error::ResourceParse::MissingValue {
-                id: format!("{id}"),
+                id: format!("{}", self.id),
                 value: "status".to_string(),
             })?
             .ready_replicas
-            .unwrap_or_default();
-        let store_replicas = self.store_replicas.unwrap_or_default();
-
-        match store_replicas - current_ready_replicas {
-            0 => {
-                info!("Deploy {id} just woke up.");
-                Ok(true)
-            }
-            _ => {
-                info!(
-                    "Deploy {id} is waking up. Waiting for replicas to be ready : {current_ready_replicas}/{store_replicas}",
-                );
-                Ok(false)
-            }
-        }
+            .unwrap_or_default())
     }
 
     pub async fn wait_ready(&self) -> Result<(), error::Resource> {
         let mut total_duration = 0;
         for i in 0_u32..1000 {
-            if self.is_ready().await? {
+            let current_ready_replicas = self.get_ready_replicas_count().await?;
+            if self.replicas - self.get_ready_replicas_count().await? == 0 {
+                info!("Deploy {} just woke up.", self.id);
                 return Ok(());
             }
+
+            info!(
+                "Deploy {} is waking up. Waiting for replicas to be ready : {}/{}",
+                self.id, current_ready_replicas, self.replicas
+            );
 
             let duration = 100 * 2_u64.pow([i, 7].into_iter().min().expect("Couldn't be empty"));
             tokio::time::sleep(Duration::from_millis(duration)).await;
@@ -311,6 +266,73 @@ impl fmt::Display for Deploy {
                 ))
                 .trim()
         )?;
+        Ok(())
+    }
+}
+
+impl Deploy {
+    /// Check if a (unique) kubesleeper deploy is found
+    pub async fn check_kubesleeper() -> Result<(), error::Resource> {
+        let kubesleeper_field_identifier = format!("metadata.name={}", KUBESLLEPER_APP_NAME);
+
+        let lp = ListParams::default()
+            .match_any()
+            .fields(&kubesleeper_field_identifier);
+
+        let kubesleeper = Deploy::get_k8s_api(None)
+            .await?
+            .list(&lp)
+            .await
+            .map_err(crate::core::resource::error::Resource::from)?;
+
+        let nb_kubesleeper = kubesleeper.iter().count();
+        if nb_kubesleeper > 1 {
+            return Err(error::Resource::TooMuchKubesleeperDeploy(nb_kubesleeper));
+        };
+
+        let ks = match kubesleeper.into_iter().next() {
+            Some(k) => Ok(k),
+            None => Err(error::Resource::MissingKubesleeperDeploy),
+        }?;
+
+        let id = format!(
+            "kubesleeper deployment ({}/{})",
+            ks.metadata.namespace.as_deref().unwrap_or("?"),
+            ks.metadata.name.as_deref().unwrap_or("?")
+        );
+
+        let labels = ks
+            .metadata
+            .labels
+            .as_ref()
+            .ok_or_else(
+                || crate::core::resource::error::ResourceParse::MissingValue {
+                    id: format!("kubesleeper ({id})"),
+                    value: ".metadata.labels".to_string(),
+                },
+            )
+            .map_err(crate::core::resource::error::Resource::from)?;
+
+        if let Some(app_value) = labels.get(KUBESLEEPER_SELECTOR_KEY) {
+            if app_value != KUBESLEEPER_SELECTOR_VALUE {
+                return Err(error::ResourceParse::ParseFailed {
+                    id: format!("kubesleeper ({id})"),
+                    value: format!(".metadata.labels.{}", KUBESLEEPER_SELECTOR_KEY),
+                    error: format!(
+                        "Must be '{}' but found '{}'",
+                        KUBESLEEPER_SELECTOR_VALUE, app_value
+                    ),
+                }
+                .into());
+            }
+        } else {
+            return Err(error::ResourceParse::MissingValue {
+                id: format!("kubesleeper ({id})"),
+                value: format!(".metadata.labels.{KUBESLEEPER_SELECTOR_KEY}"),
+            }
+            .into());
+        };
+        debug!("Kubesleeper deployment found : {id}");
         Ok(())
     }
 }

@@ -8,17 +8,13 @@ pub mod service;
 pub mod constantes{
     pub const KUBESLEEPER_ANNOTATION_PREFIX     : &str = "kubesleeper/";
     pub const ANNOTATION_STORE_REPLICAS_KEY     : &str = "store.replicas";
-    pub const ANNOTATION_STORE_STATE_KEY        : &str = "store.state";
     pub const ANNOTATION_STORE_SELECTOR_KEY     : &str = "store.selectors";
     pub const ANNOTATION_STORE_PORTS_KEY        : &str = "store.ports";
-    pub const KUBESLEEPER_SERVER_SELECTOR_KEY   : &str = "app";
     pub const KUBESLLEPER_APP_NAME              : &str = "kubesleeper";
 
-    pub const KUBESLEEPER_SERVER_SELECTOR_VALUE : &str = "kubesleeper";
-    #[allow(dead_code)]
-    pub const KUBESLEEPER_SERVER_LABEL_KEY      : &str = "app";
-    #[allow(dead_code)]
-    pub const KUBESLEEPER_SERVER_LABEL_VALUE    : &str = "kubesleeper";
+    pub const KUBESLEEPER_SELECTOR_KEY   : &str = "app";
+    pub const KUBESLEEPER_SELECTOR_VALUE : &str = "kubesleeper";
+    
     pub const KUBESLEEPER_SERVER_PORT           : i32 = 8000;
 }
 
@@ -45,11 +41,11 @@ pub mod error {
         StateKindError(String),
 
         #[allow(dead_code)]
-        #[error("No kubesleeper deployment found during deploy parsing")]
+        #[error("No kubesleeper deployment found")]
         MissingKubesleeperDeploy,
 
         #[allow(dead_code)]
-        #[error("Found {0} kubesleeper deployments during deploy parsing")]
+        #[error("Found {0} kubesleeper deployments, kubesleeper deployment must be unique")]
         TooMuchKubesleeperDeploy(usize),
 
         #[allow(dead_code)]
@@ -59,12 +55,22 @@ pub mod error {
 
     #[derive(Debug, thiserror::Error)]
     pub enum ResourceParse {
-        #[error("Resource '{id}' : Required value '{value}' is missing on")]
+        #[error("Resource '{id}' : The mandatory value '{value}' is missing")]
         MissingValue {
             /// Resource identifier (like "{namespace}/{name}")
             id: String,
             /// name of the missing value
             value: String,
+        },
+
+        #[error(
+            "Resource '{id}' : The mandatory annotation '{annotation}' is missing (required in sleep mode) "
+        )]
+        MissingAnnotationInSleepState {
+            /// Resource identifier (like "{namespace}/{name}")
+            id: String,
+            /// name of the missing value
+            annotation: String,
         },
 
         #[error("Resource '{id}' : Failed to parse value '{value}' : {error}")]
@@ -92,6 +98,7 @@ pub trait TargetResource<'a>:
     async fn wake(&mut self) -> Result<(), error::Resource>; // uses patch
     async fn sleep(&mut self) -> Result<(), error::Resource>; // uses patch
     async fn patch(&self) -> Result<(), error::Resource>;
-    #[allow(dead_code)]
+    fn is_asleep(&self) -> bool;
     async fn get_k8s_resource(&self) -> Result<Self::K8sResource, error::Resource>;
+    fn id(&self) -> String;
 }

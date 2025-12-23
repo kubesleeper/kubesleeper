@@ -14,11 +14,7 @@ If you’re unsure about anything, feel free to open an issue — we’re happy 
 ## Dev hint
 
 ### Dev namespace
-Use `sh isntall.sh` to deploy a fresh dev env on the `ks` namespace.
-
-This script uses k3s as local kube engine, it will automatically check your configuration,
-start k3s, clean your `ks` dev namespace and reinstall the one you chose.
-So it will serve you a brand new fresh dev namespace.
+Some kubernetese environment are created under `envs/` for tests.
 
 
 ### Documentation
@@ -30,13 +26,11 @@ The documentation auto rebuilt/serve itself each time a modificqation is made
 ### Test locally
 Use `cargo run -- {kubesleeper args}` to run kubesleeper action from your source.
 
-Check `cargo run -- manual --help` to see the manual action you can do (useful for debug/test works)
+Check `cargo run -- --help` to see the action you can do.
 
-> [!TIP]
-> See [Dev namespace](#dev-namespace) to install an already pre-configured namespace
 
 ### build source
-Use `cargo build --release` to build kubesleeper release.
+Use `cargo build --release --target x86_64-unknown-linux-musl` to build kubesleeper release.
 
 or
 
@@ -45,4 +39,4 @@ or
 To build with docker to have a working env (and to be iso with production) 
 
 ### build kubesleeper image
-use `{ docker | podman } build -t kubesleeper .` (regarding you image builder tool) to build kubesleeper release image.
+use `{ docker | podman } build -t kubesleeper` (regarding you image builder tool) to build kubesleeper release image.

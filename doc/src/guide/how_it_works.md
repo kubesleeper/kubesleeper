@@ -33,7 +33,7 @@ Your cluster has **not received any traffic** for a certain duration. Kubesleepe
 
 ---
 
-### Step 4: _Asleep_ State - Scaling Up
+## Step 4: _Asleep_ State - Scaling Up
 
 <img src="/rsc/flow/Flow4.mvp.drawio.png" class="custom-rounded" />
 
@@ -48,7 +48,7 @@ Turning on the cluster means:
 
 ---
 
-### Step 5: Back to _Awake_ State
+## Step 5: Back to _Awake_ State
 
 <img src="/rsc/flow/Flow5.mvp.drawio.png" class="custom-rounded" />
 
