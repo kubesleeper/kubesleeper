@@ -11,10 +11,12 @@ RUN apt-get update && apt-get install -y \
     musl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN cargo install minhtml --color always
+RUN wget https://github.com/tdewolff/minify/releases/download/v2.24.8/minify_linux_amd64.tar.gz && \
+    tar -xzf minify_linux_amd64.tar.gz && \
+    chmod +x minify
 
 COPY static ./static
-RUN /usr/local/cargo/bin/minhtml --minify-css --minify-js static/waiting.html -o static/waiting.html
+RUN ./minify static/waiting.html -o static/waiting.html
 
 COPY Cargo.toml ./
 COPY src ./src
