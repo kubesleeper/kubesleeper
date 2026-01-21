@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubesleeper
+data:
+  config: |
+    {{- .Values.config | toYaml | nindent 4 }}
+
