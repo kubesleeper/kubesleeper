@@ -1,4 +1,4 @@
-use rocket::{fs::FileServer, routes};
+use rocket::{get, routes};
 use std::num::NonZeroU16;
 use tracing::info;
 
@@ -16,6 +16,11 @@ pub mod error {
     }
 }
 
+#[get("/waiting.html")]
+fn waiting_html() -> &'static str {
+    include_str!("../../../static/waiting.html")
+}
+
 pub async fn start(port: NonZeroU16) -> Result<(), error::ServerError> {
     info!("Starting server");
     let config = rocket::Config::figment().merge(("port", port));
@@ -25,7 +30,7 @@ pub async fn start(port: NonZeroU16) -> Result<(), error::ServerError> {
         .mount("/", routes![apps])
         .mount(
             KUBESLEEPER_REST_PATH_PREFIX.to_string() + "/static",
-            FileServer::from("static"),
+            routes![waiting_html]
         )
         .mount(KUBESLEEPER_REST_PATH_PREFIX, routes![wait, static_catcher])
         .launch()
