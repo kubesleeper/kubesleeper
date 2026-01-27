@@ -1,34 +1,32 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kubesleeper
-  labels:
-    app: kubesleeper
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: kubesleeper
-  template:
-    metadata:
-      labels:
+    name: kubesleeper
+    labels:
         app: kubesleeper
-    spec:
-      volumes:
-        - name: config
-          configMap:
-            name: kubesleeper
-      containers:
-        - image: {{ .Values.image.name }}:{{ .Values.image.tag | default .Chart.AppVersion }}
-          name: kubesleeper
-          command: [ "kubesleeper", "-v", "start" ]
-          ports:
-            - containerPort: {{ .Values.config.server.port }}
-          volumeMounts:
-            - name: config
-              mountPath: ./kubesleeper.yaml
-              subPath: config
-              readOnly: true
-      serviceAccountName: kubesleeper
-
-
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: kubesleeper
+    template:
+        metadata:
+            labels:
+                app: kubesleeper
+        spec:
+            volumes:
+                - name: config
+                  configMap:
+                      name: kubesleeper
+            containers:
+                - image: "{{ .Values.image.name }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+                  name: kubesleeper
+                  command: ["kubesleeper", "-v", "start"]
+                  ports:
+                      - containerPort: { { .Values.config.server.port } }
+                  volumeMounts:
+                      - name: config
+                        mountPath: ./kubesleeper.yaml
+                        subPath: config
+                        readOnly: true
+            serviceAccountName: kubesleeper
