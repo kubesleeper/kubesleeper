@@ -1,3 +1,4 @@
+mod groups;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::num::{NonZeroU16, NonZeroU32};
 use std::path::PathBuf;
@@ -5,6 +6,7 @@ use std::str::FromStr;
 use std::time::Duration;
 use tracing::{debug, warn};
 
+use crate::core::config::groups::Group;
 const DEFAULT_CONFIG_FILE_PATH: &str = "kubesleeper.yaml";
 
 #[derive(Default, Serialize, Debug, Deserialize, Clone)]
@@ -16,6 +18,12 @@ pub struct Config {
 
     #[serde(default)]
     pub controller: ControllerConfig,
+
+    #[serde(default)]
+    pub groups: Vec<Group>,
+
+    #[serde(default)]
+    pub autoManagedNamespace: Vec<String>,
 }
 
 #[derive(Serialize, Debug, Deserialize, Clone)]
@@ -73,7 +81,10 @@ pub enum ConfigError {
     InvalidFileExtension(String),
 
     #[error("File not found : '{0}'")]
-    FileNotFoud(String),
+    FileNotFound(String),
+
+    #[error("Invalid format: '{0}' do not match namespace/name")]
+    IdentifierParsing(String),
 }
 
 pub fn parse(path: Option<PathBuf>) -> Result<Config, ConfigError> {
@@ -85,7 +96,7 @@ pub fn parse(path: Option<PathBuf>) -> Result<Config, ConfigError> {
                     debug!("Config file found : {}", p.to_str().unwrap_or_default());
                     Ok(())
                 }
-                false => Err(ConfigError::FileNotFoud(
+                false => Err(ConfigError::FileNotFound(
                     p.to_str().unwrap_or_default().to_string(),
                 )),
             }?;

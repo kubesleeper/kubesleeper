@@ -30,7 +30,7 @@ pub async fn start(port: NonZeroU16) -> Result<(), error::ServerError> {
         .mount("/", routes![apps])
         .mount(
             KUBESLEEPER_REST_PATH_PREFIX.to_string() + "/static",
-            routes![waiting_html]
+            routes![waiting_html],
         )
         .mount(KUBESLEEPER_REST_PATH_PREFIX, routes![wait, static_catcher])
         .launch()
