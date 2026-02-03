@@ -5,13 +5,17 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 use tracing::{debug, warn};
-
+use tracing::log::info;
 use crate::core::config::groups::Group;
+use crate::core::resource::resource_name::error::ResourceNameError;
+use crate::core::resource::resource_name::ResourceName;
+
 const DEFAULT_CONFIG_FILE_PATH: &str = "kubesleeper.yaml";
 
 #[derive(Default, Serialize, Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 // TODO: Rename ServerConfig to Server and rename ControllerConfig to another name more explicit than "controller" for key
+// TODO: Verify that there is no overlap between groups and auto_managed_namespace
 pub struct Config {
     #[serde(default)]
     pub server: ServerConfig,
@@ -23,7 +27,7 @@ pub struct Config {
     pub groups: Vec<Group>,
 
     #[serde(default)]
-    pub autoManagedNamespace: Vec<String>,
+    pub auto_managed_namespace: Vec<ResourceName>,
 }
 
 #[derive(Serialize, Debug, Deserialize, Clone)]
@@ -83,8 +87,11 @@ pub enum ConfigError {
     #[error("File not found : '{0}'")]
     FileNotFound(String),
 
-    #[error("Invalid format: '{0}' do not match namespace/name")]
-    IdentifierParsing(String),
+    #[error("Invalid format: '{field_name}' do not match namespace/name: {error}")]
+    IdentifierParsing {
+        field_name: String,
+        error: ResourceNameError,
+    },
 }
 
 pub fn parse(path: Option<PathBuf>) -> Result<Config, ConfigError> {
@@ -93,7 +100,7 @@ pub fn parse(path: Option<PathBuf>) -> Result<Config, ConfigError> {
         Some(p) => {
             match p.exists() {
                 true => {
-                    debug!("Config file found : {}", p.to_str().unwrap_or_default());
+                    info!("Config file found : {}", p.to_str().unwrap_or_default());
                     Ok(())
                 }
                 false => Err(ConfigError::FileNotFound(
@@ -114,15 +121,15 @@ pub fn parse(path: Option<PathBuf>) -> Result<Config, ConfigError> {
 
         None => {
             let p = PathBuf::from_str(DEFAULT_CONFIG_FILE_PATH)
-                .expect("Default config file path must be parsable at this point");
+                .expect("Config file path must be parsable at this point");
             match p.exists() {
                 true => {
-                    debug!("Default config file ({DEFAULT_CONFIG_FILE_PATH}) found");
+                    debug!("Config file ({DEFAULT_CONFIG_FILE_PATH}) found");
                     Some(p)
                 }
                 false => {
                     warn!(
-                        "Default config file ({DEFAULT_CONFIG_FILE_PATH}) not found : using default values"
+                        "No config found : using default values"
                     );
                     None
                 }
