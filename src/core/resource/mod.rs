@@ -1,7 +1,7 @@
 use kube::Api;
-
 pub mod annotations;
 pub mod deploy;
+pub mod resource_name;
 pub mod service;
 
 #[rustfmt::skip]

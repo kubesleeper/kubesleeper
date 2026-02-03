@@ -109,7 +109,7 @@ enum Error {
     #[error(transparent)]
     LoggerError(#[from] logger::error::Logger),
 
-    #[error(transparent)]
+    #[error("Fail to parse configuration file : {0}")]
     ConfigError(#[from] config::ConfigError),
 }
 
