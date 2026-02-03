@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "coal";
-            window.path_to_searchindex_js = "../searchindex-8f4b2598.js";
+            window.path_to_searchindex_js = "../searchindex-04df2c40.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-c877dfc4.js"></script>
+        <script src="../toc-d0d55bd7.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -174,35 +174,79 @@
 
                 <div id="mdbook-content" class="content">
                     <main>
-                        <pre><code>v1: (current work)
-  Config :
-      - Ports
-      - Sleepness duration
-      - scheduler refresh rate
-
-  Doc :
-    - Doc redaction
-    - RustDoc creation
-  
-  CI Github :
-    - PR checks:
-      - commit check
-      - cargo test
-    - Realease (versioning)
-    - Image build
-    - Helm Pcakge
-
-v2:
-- custom waiting page
-- managing groups
-  fine grained Awake/Asleep, not all the cluster at once
-- managing all namespace
-- Doc building with version
-
-v3:
-- smart preshot waking
-- ...(waiting for feedbacks)
-</code></pre>
+                        <h1 id="10-current-work"><a class="header" href="#10-current-work">1.0 (current work)</a></h1>
+<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: left">Feature</th><th style="text-align: center">Status</th><th style="text-align: left">Reference</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: left">Ports</td><td style="text-align: center">✅</td><td style="text-align: left"><a href="https://github.com/kubesleeper/kubesleeper/commit/553e00ffedf97b9eed59a05748426738e31db32b"><code>553e00f</code></a></td></tr>
+<tr><td style="text-align: left">Sleepness Duration</td><td style="text-align: center">✅</td><td style="text-align: left"><a href="https://github.com/kubesleeper/kubesleeper/commit/553e00ffedf97b9eed59a05748426738e31db32b"><code>553e00f</code></a></td></tr>
+<tr><td style="text-align: left">Scheduler Rate</td><td style="text-align: center">✅</td><td style="text-align: left"><a href="https://github.com/kubesleeper/kubesleeper/commit/553e00ffedf97b9eed59a05748426738e31db32b"><code>553e00f</code></a></td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="doc"><a class="header" href="#doc">Doc</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: left">Feature</th><th style="text-align: center">Status</th><th style="text-align: left">Reference</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: left">Doc redaction</td><td style="text-align: center">🚧</td><td style="text-align: left"><em>In progres</em></td></tr>
+<tr><td style="text-align: left">RustDoc creation</td><td style="text-align: center">🚧</td><td style="text-align: left"><em>In progres</em></td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="ci-github"><a class="header" href="#ci-github">CI Github</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: left">Feature</th><th style="text-align: center">Status</th><th style="text-align: left">Reference</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: left">PR checks commit</td><td style="text-align: center">✅</td><td style="text-align: left"><a href="https://github.com/kubesleeper/kubesleeper/commit/6e416bfab2d1c7951a97aa2be14e3ddfe26a9b14"><code>6e416bf</code></a></td></tr>
+<tr><td style="text-align: left">PR checks cargo test</td><td style="text-align: center">✅</td><td style="text-align: left"><a href="https://github.com/kubesleeper/kubesleeper/commit/8dbecd2426751f87128aaafd4ff56f4d243f647c"><code>8dbecd2</code></a></td></tr>
+<tr><td style="text-align: left">Realease (versioning)</td><td style="text-align: center">✅</td><td style="text-align: left"><a href="https://github.com/kubesleeper/kubesleeper/commit/25eef124f97f9ee31d5407ed0281f5daae08c0b2"><code>25eef12</code></a></td></tr>
+<tr><td style="text-align: left">Image build</td><td style="text-align: center">✅</td><td style="text-align: left"><a href="https://github.com/kubesleeper/kubesleeper/commit/3253793b6eb491a93d46e04734f937ef0295c3ea"><code>3253793</code></a></td></tr>
+<tr><td style="text-align: left">Helm Pack</td><td style="text-align: center">🚧</td><td style="text-align: left"><em>In progres</em></td></tr>
+</tbody>
+</table>
+</div>
+<blockquote class="blockquote-tag blockquote-tag-note">
+<p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+<p>First versions of Kubesleeper were developed on a private GitLab instance. Thus, not all functionalities are listed above.</p>
+</blockquote>
+<hr>
+<h1 id="20"><a class="header" href="#20">2.0</a></h1>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: left">Feature</th><th style="text-align: center">Status</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: left">Custom waiting page</td><td style="text-align: center">⏳</td></tr>
+<tr><td style="text-align: left">Group management (fine grained Awake/Asleep, not all the cluster at once)</td><td style="text-align: center">⏳</td></tr>
+<tr><td style="text-align: left">Managing all namespace</td><td style="text-align: center">⏳</td></tr>
+<tr><td style="text-align: left">Doc building with version</td><td style="text-align: center">⏳</td></tr>
+</tbody>
+</table>
+</div>
+<hr>
+<h1 id="30"><a class="header" href="#30">3.0</a></h1>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th style="text-align: left">Feature</th><th style="text-align: center">Status</th></tr>
+</thead>
+<tbody>
+<tr><td style="text-align: left">Smart preshot waking</td><td style="text-align: center">⏳</td></tr>
+<tr><td style="text-align: left">…(waiting for feedbacks)</td><td style="text-align: center">⏳</td></tr>
+</tbody>
+</table>
+</div>
 
                     </main>
 
@@ -212,6 +256,9 @@ v3:
                                 <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                             </a>
 
+                            <a rel="next prefetch" href="../annexes/common_errors.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -223,6 +270,9 @@ v3:
                         <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
                     </a>
 
+                    <a rel="next prefetch" href="../annexes/common_errors.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
             </nav>
 
         </div>

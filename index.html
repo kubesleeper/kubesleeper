@@ -35,10 +35,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "coal";
-            window.path_to_searchindex_js = "searchindex-8f4b2598.js";
+            window.path_to_searchindex_js = "searchindex-04df2c40.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc-c877dfc4.js"></script>
+        <script src="toc-d0d55bd7.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -186,12 +186,13 @@
 </div>
 
 <br> 
-<p>Kubesleeper is a <em>scale to zero</em> kubernetes manager. It automatically decrease resources regarding their load, offering you less expenses.</p>
-<p>Advantage off kubesleeper :</p>
+<p>Kubesleeper is a <em>scale-to-zero</em> Kubernetes manager. It automatically reduces resource usage based on load, helping you cut infrastructure costs. Concretely, if an application is unused for some time, kubesleeper will automatically shut it down and restart it when a new user tries to access it.</p>
+<p>Advantages of kubesleeper:</p>
 <ul>
-<li><strong>Very Lightweight :</strong> Only one very small pod to manage any cluster size</li>
-<li><strong>No Proxy :</strong> Use the k8s api, does not interfere with your Kubernetes resources</li>
-<li><strong>Respect Your Scaling :</strong> Only turn <em>off</em> or <em>on</em> your resources and do not alter your own scaling logic. When <em>on</em> your finer-grained scaling management rules are retained.</li>
+<li><strong>Lightweight</strong> – Runs as a single tiny pod, regardless of your cluster size.</li>
+<li><strong>No Proxy Layer</strong> – Directly interacts with the Kubernetes API; never intercepts or modifies your resources.</li>
+<li><strong>Respects Your Scaling</strong> – kubesleeper only turns resources on/off. Your own autoscaling rules and fine-grained logic remain untouched and active when resources are awake.</li>
+<li><strong>Fully Configurable</strong> – Designed to adapt to your environment, whatever it looks like.</li>
 </ul>
 <h2 id="distributions"><a class="header" href="#distributions">Distributions</a></h2>
 <ul>
