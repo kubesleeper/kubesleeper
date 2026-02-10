@@ -1,14 +1,13 @@
 mod groups;
+use crate::core::config::groups::Group;
+use crate::core::resource::resource_name::ResourceName;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::num::{NonZeroU16, NonZeroU32};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
-use tracing::{debug, warn};
 use tracing::log::info;
-use crate::core::config::groups::Group;
-use crate::core::resource::resource_name::error::ResourceNameError;
-use crate::core::resource::resource_name::ResourceName;
+use tracing::{debug, warn};
 
 const DEFAULT_CONFIG_FILE_PATH: &str = "kubesleeper.yaml";
 
@@ -86,12 +85,6 @@ pub enum ConfigError {
 
     #[error("File not found : '{0}'")]
     FileNotFound(String),
-
-    #[error("Invalid format: '{field_name}' do not match namespace/name: {error}")]
-    IdentifierParsing {
-        field_name: String,
-        error: ResourceNameError,
-    },
 }
 
 pub fn parse(path: Option<PathBuf>) -> Result<Config, ConfigError> {
@@ -128,9 +121,7 @@ pub fn parse(path: Option<PathBuf>) -> Result<Config, ConfigError> {
                     Some(p)
                 }
                 false => {
-                    warn!(
-                        "No config found : using default values"
-                    );
+                    warn!("No config found : using default values");
                     None
                 }
             }

@@ -1,4 +1,7 @@
 use crate::core::resource::TargetResource;
+use crate::core::resource::identifier::Identifier;
+use crate::core::resource::resource_name::ResourceName;
+use crate::core::resource::resource_name::error::ResourceNameError;
 use crate::core::resource::{annotations::Annotations, constantes::*};
 
 use crate::core::state::state_kind::StateKind;
@@ -30,9 +33,8 @@ pub struct ServicePort {
 
 #[derive(Debug, Serialize)]
 pub struct Service {
-    pub id: String,
-    pub name: String,
-    pub namespace: String,
+    pub name: ResourceName,
+    pub namespace: ResourceName,
     pub selector: HashMap<String, String>,
 
     // using i32 as key and not name cause name is optional.
@@ -63,7 +65,7 @@ impl TargetResource<'static> for Service {
         if !self.is_asleep() {
             debug!(
                 "State of service '{}' already marked as '{}', skipping wake action",
-                self.id,
+                self.id(),
                 StateKind::Awake.to_string()
             );
             return Ok(());
@@ -83,7 +85,7 @@ impl TargetResource<'static> for Service {
         if self.is_asleep() {
             debug!(
                 "State of service '{}' already marked as '{}', skipping wake action",
-                self.id,
+                self.id(),
                 StateKind::Awake.to_string()
             );
             return Ok(());
@@ -126,9 +128,9 @@ impl TargetResource<'static> for Service {
 
         let params = PatchParams::default();
         let patch = Patch::Merge(&patch);
-        Service::get_k8s_api(Some(&self.namespace))
+        Service::get_k8s_api(Some(&self.namespace.to_string()))
             .await?
-            .patch(&self.name, &params, &patch)
+            .patch(&self.name.to_string(), &params, &patch)
             .await?;
 
         Ok(())
@@ -167,19 +169,17 @@ impl TargetResource<'static> for Service {
             .match_any()
             .fields(&format!("metadata.name={}", self.name));
 
-        Self::get_k8s_api(Some(&self.namespace))
+        Self::get_k8s_api(Some(&self.namespace.to_string()))
             .await?
             .list(&lp)
             .await?
             .into_iter()
             .next()
-            .ok_or(error::Resource::K8sResourceNotFound {
-                id: self.id.clone(),
-            })
+            .ok_or(error::Resource::K8sResourceNotFound { id: self.id() })
     }
 
-    fn id(&self) -> String {
-        return self.id.clone();
+    fn id(&self) -> Identifier {
+        return Identifier{namespace: self.namespace, name:self.name};
     }
 }
 
@@ -209,11 +209,23 @@ impl TryFrom<&K8sService> for Service {
                 id: format!("?/?"),
                 value: format!("name"),
             })?
-            .to_string();
-        let namespace =
-            ResourceExt::namespace(service).ok_or(error::ResourceParse::MissingValue {
+            .to_string()
+            .try_into()
+            .map_err(|e: ResourceNameError| error::ResourceParse::ParseFailed {
+                id: "?/?".to_string(),
+                value: "name".to_string(),
+                error: e.to_string(),
+            })?;
+        let namespace = ResourceExt::namespace(service)
+            .ok_or(error::ResourceParse::MissingValue {
                 id: format!("{name}/?"),
                 value: format!("namespace"),
+            })?
+            .try_into()
+            .map_err(|e: ResourceNameError| error::ResourceParse::ParseFailed {
+                id: "?/?".to_string(),
+                value: "name".to_string(),
+                error: e.to_string(),
             })?;
 
         let id = format!("{namespace}/{name}");
@@ -311,7 +323,6 @@ impl TryFrom<&K8sService> for Service {
         };
 
         Ok(Service {
-            id,
             name,
             namespace,
             selector,

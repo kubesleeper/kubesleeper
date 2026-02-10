@@ -1,8 +1,8 @@
-use std::fmt::{Display, Formatter};
 use crate::core::resource::resource_name::error::ResourceNameError;
 use regex::Regex;
-use std::sync::OnceLock;
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
+use std::sync::OnceLock;
 
 pub mod error {
     #[derive(Debug, thiserror::Error)]

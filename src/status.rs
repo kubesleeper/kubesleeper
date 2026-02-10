@@ -5,9 +5,7 @@ use serde::Serialize;
 use crate::core::{
     ingress::IngressType,
     resource::{
-        TargetResource,
-        deploy::Deploy,
-        service::{Service, ServicePort},
+        TargetResource, deploy::Deploy, identifier::Identifier, service::{Service, ServicePort}
     },
 };
 
@@ -20,7 +18,7 @@ struct DeployStatus {
 
 #[derive(Serialize)]
 struct ServiceStatus {
-    id: String,
+    id: Identifier,
     state: String,
     stored_selector: HashMap<String, String>,
     stored_ports: Vec<ServicePort>,
@@ -60,7 +58,7 @@ pub async fn status() -> Result<(), crate::Error> {
         };
 
         services_status.push(ServiceStatus {
-            id: s.id.clone(),
+            id: s.id(),
             state,
             stored_selector: s.store_selector,
             stored_ports: s.store_ports,

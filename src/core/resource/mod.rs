@@ -1,6 +1,9 @@
 use kube::Api;
+
+use crate::core::resource::identifier::Identifier;
 pub mod annotations;
 pub mod deploy;
+pub mod identifier;
 pub mod resource_name;
 pub mod service;
 
@@ -100,5 +103,5 @@ pub trait TargetResource<'a>:
     async fn patch(&self) -> Result<(), error::Resource>;
     fn is_asleep(&self) -> bool;
     async fn get_k8s_resource(&self) -> Result<Self::K8sResource, error::Resource>;
-    fn id(&self) -> String;
+    fn id(&self) -> Identifier;
 }

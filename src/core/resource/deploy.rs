@@ -8,7 +8,11 @@ use serde::Serialize;
 use tracing::debug;
 
 use crate::core::{
-    resource::{constantes::*, error},
+    resource::{
+        constantes::*,
+        error,
+        resource_name::{ResourceName, error::ResourceNameError},
+    },
     state::state_kind::StateKind,
 };
 use std::time::Duration;
@@ -18,8 +22,8 @@ use tracing::log::info;
 #[derive(Serialize)]
 pub struct Deploy {
     pub id: String,
-    pub name: String,
-    pub namespace: String,
+    pub name: ResourceName,
+    pub namespace: ResourceName,
     pub replicas: i32,
 
     pub store_replicas: i32,
@@ -36,12 +40,24 @@ impl TryFrom<&Deployment> for Deploy {
                 id: "?/?".to_string(),
                 value: "name".to_string(),
             })?
-            .to_string();
+            .to_string()
+            .try_into()
+            .map_err(|e: ResourceNameError| error::ResourceParse::ParseFailed {
+                id: "?/?".to_string(),
+                value: "name".to_string(),
+                error: e.to_string(),
+            })?;
 
-        let namespace =
-            ResourceExt::namespace(deploy).ok_or(error::ResourceParse::MissingValue {
-                id: format!("{name}"),
+        let namespace = ResourceExt::namespace(deploy)
+            .ok_or(error::ResourceParse::MissingValue {
+                id: format!("{name}/?"),
                 value: "namespace".to_string(),
+            })?
+            .try_into()
+            .map_err(|e: ResourceNameError| error::ResourceParse::ParseFailed {
+                id: format!("{name}/?"),
+                value: "namespace".to_string(),
+                error: e.to_string(),
             })?;
 
         let id = format!("{namespace}/{name}");
@@ -184,9 +200,9 @@ impl super::TargetResource<'static> for Deploy {
         });
         let params = PatchParams::default();
         let patch = Patch::Merge(&patch);
-        Self::get_k8s_api(Some(&self.namespace))
+        Self::get_k8s_api(Some(&self.namespace.to_string()))
             .await?
-            .patch(&self.name, &params, &patch)
+            .patch(&self.name.to_string(), &params, &patch)
             .await?;
 
         Ok(())
@@ -197,7 +213,7 @@ impl super::TargetResource<'static> for Deploy {
             .match_any()
             .fields(&format!("metadata.name={}", self.name));
 
-        Self::get_k8s_api(Some(&self.namespace))
+        Self::get_k8s_api(Some(&self.namespace.to_string()))
             .await?
             .list(&lp)
             .await?
