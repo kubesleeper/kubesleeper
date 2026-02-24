@@ -65,9 +65,9 @@ impl FromStr for Identifier {
     }
 }
 
-impl Into<String> for Identifier {
-    fn into(self) -> String {
-        format!("{}/{}", self.namespace, self.name)
+impl From<Identifier> for String {
+    fn from(val: Identifier) -> Self {
+        format!("{}/{}", val.namespace, val.name)
     }
 }
 

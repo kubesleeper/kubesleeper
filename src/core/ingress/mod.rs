@@ -93,8 +93,8 @@ pub async fn get_prometheus_raw_metrics_dump(pod: &Pod) -> Result<String, Ingres
 
     let port = pod.annotations().get(PROMETHEUS_PORT_ANNOTATION).ok_or(
         error::ResourceParse::MissingValue {
-            id: format!("{pod_id}"),
-            value: format!(".annotation.{}", PROMETHEUS_PORT_ANNOTATION),
+            id: pod_id.to_string(),
+            value: format!(".annotation.{PROMETHEUS_PORT_ANNOTATION}"),
         },
     )?;
 
@@ -102,24 +102,24 @@ pub async fn get_prometheus_raw_metrics_dump(pod: &Pod) -> Result<String, Ingres
         Some(status) => match &status.pod_ip {
             Some(ip) => Ok(ip),
             None => Err(error::ResourceParse::MissingValue {
-                id: format!("{pod_id}"),
-                value: format!(".status.ip"),
+                id: pod_id.to_string(),
+                value: ".status.ip".to_string(),
             }),
         },
         None => Err(error::ResourceParse::MissingValue {
-            id: format!("{pod_id}"),
-            value: format!(".status"),
+            id: pod_id.to_string(),
+            value: ".status".to_string(),
         }),
     }?;
 
     let path = pod.annotations().get(PROMETHEUS_PATH_ANNOTATION).ok_or(
         error::ResourceParse::MissingValue {
-            id: format!("{pod_id}"),
-            value: format!(".annotations.{}", PROMETHEUS_PATH_ANNOTATION),
+            id: pod_id.to_string(),
+            value: format!(".annotations.{PROMETHEUS_PATH_ANNOTATION}"),
         },
     )?;
 
-    let url = format!("http://{}:{}/{}", ip, port, path);
+    let url = format!("http://{ip}:{port}/{path}");
 
     Ok(reqwest::get(url).await?.text().await?)
 }

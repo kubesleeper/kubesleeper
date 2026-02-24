@@ -35,8 +35,8 @@ impl TryFrom<&str> for StateKind {
         Err(StateError::InvalidStateKindError(format!(
             "Can't parse str '{}' to StateKind, valid str are '{}' and '{}'",
             value,
-            StateKind::Asleep.to_string(),
-            StateKind::Awake.to_string()
+            StateKind::Asleep,
+            StateKind::Awake
         )))
     }
 }

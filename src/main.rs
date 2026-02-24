@@ -147,7 +147,7 @@ async fn main() {
     match process().await {
         Ok(_) => {}
         Err(e) => {
-            eprintln!("Error : {}", e);
+            eprintln!("Error : {e}");
             process::exit(1);
         }
     }

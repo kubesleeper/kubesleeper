@@ -42,8 +42,7 @@ impl IngressType for Traefik {
             let service_name: String = groups[0].to_string();
             let nb: u64 = groups[1].parse().map_err(|err| {
                 IngressError::ParsingMetricError(format!(
-                    "Can't parse nomber of calls received : {}",
-                    err
+                    "Can't parse nomber of calls received : {err}"
                 ))
             })?;
 

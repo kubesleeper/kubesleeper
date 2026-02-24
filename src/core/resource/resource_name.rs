@@ -30,7 +30,7 @@ impl TryFrom<String> for ResourceName {
         static RE: OnceLock<Regex> = OnceLock::new();
         let re = RE.get_or_init(|| Regex::new(r"^[a-z]([a-z0-9\-.]{0,61}[a-z])?$").unwrap());
 
-        if re.is_match(&*value) {
+        if re.is_match(&value) {
             Ok(ResourceName(value))
         } else {
             Err(ResourceNameError::InvalidName(value.to_string()))
@@ -44,8 +44,8 @@ impl Display for ResourceName {
     }
 }
 
-impl Into<String> for ResourceName {
-    fn into(self) -> String {
-        format!("{}", self.0)
+impl From<ResourceName> for String {
+    fn from(val: ResourceName) -> Self {
+        val.0.to_string()
     }
 }

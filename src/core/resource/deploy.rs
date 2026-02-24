@@ -81,8 +81,7 @@ impl TryFrom<&Deployment> for Deploy {
                         error::ResourceParse::ParseFailed {
                             id: id.to_string(),
                             value: format!(
-                                ".annotations.{}{}",
-                                KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_REPLICAS_KEY
+                                ".annotations.{KUBESLEEPER_ANNOTATION_PREFIX}{ANNOTATION_STORE_REPLICAS_KEY}"
                             ),
                             error: format!("{err}"),
                         }
@@ -91,8 +90,7 @@ impl TryFrom<&Deployment> for Deploy {
                 .unwrap_or(Err(error::ResourceParse::MissingAnnotationInSleepState {
                     id: id.to_string(),
                     annotation: format!(
-                        "{}{}",
-                        KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_REPLICAS_KEY
+                        "{KUBESLEEPER_ANNOTATION_PREFIX}{ANNOTATION_STORE_REPLICAS_KEY}"
                     ),
                 }))?
         } else {
@@ -165,13 +163,12 @@ impl super::TargetResource<'static> for Deploy {
             Api::all(client)
         };
 
-        return Ok(deployments);
+        Ok(deployments)
     }
 
     async fn get_all() -> Result<Vec<Self>, error::Resource> {
         let lp = ListParams::default().match_any().fields(&format!(
-            "metadata.name!={},metadata.namespace!=kube-system",
-            KUBESLLEPER_APP_NAME
+            "metadata.name!={KUBESLLEPER_APP_NAME},metadata.namespace!=kube-system"
         ));
 
         Self::get_k8s_api(None)
@@ -179,7 +176,7 @@ impl super::TargetResource<'static> for Deploy {
             .list(&lp)
             .await?
             .iter()
-            .map(|d| Self::try_from(d))
+            .map(Self::try_from)
             .collect()
     }
 
@@ -221,7 +218,7 @@ impl super::TargetResource<'static> for Deploy {
     }
 
     fn id(&self) -> Identifier {
-        return self.id.clone();
+        self.id.clone()
     }
 }
 
@@ -285,7 +282,7 @@ impl fmt::Display for Deploy {
 impl Deploy {
     /// Check if a (unique) kubesleeper deploy is found
     pub async fn check_kubesleeper() -> Result<(), error::Resource> {
-        let kubesleeper_field_identifier = format!("metadata.name={}", KUBESLLEPER_APP_NAME);
+        let kubesleeper_field_identifier = format!("metadata.name={KUBESLLEPER_APP_NAME}");
 
         let lp = ListParams::default()
             .match_any()
@@ -329,10 +326,9 @@ impl Deploy {
             if app_value != KUBESLEEPER_SELECTOR_VALUE {
                 return Err(error::ResourceParse::ParseFailed {
                     id: format!("kubesleeper ({id})"),
-                    value: format!(".metadata.labels.{}", KUBESLEEPER_SELECTOR_KEY),
+                    value: format!(".metadata.labels.{KUBESLEEPER_SELECTOR_KEY}"),
                     error: format!(
-                        "Must be '{}' but found '{}'",
-                        KUBESLEEPER_SELECTOR_VALUE, app_value
+                        "Must be '{KUBESLEEPER_SELECTOR_VALUE}' but found '{app_value}'"
                     ),
                 }
                 .into());
