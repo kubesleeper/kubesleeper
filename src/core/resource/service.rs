@@ -175,11 +175,16 @@ impl TargetResource<'static> for Service {
             .await?
             .into_iter()
             .next()
-            .ok_or(error::Resource::K8sResourceNotFound { id: self.id() })
+            .ok_or(error::Resource::K8sResourceNotFound {
+                id: self.id().to_string(),
+            })
     }
 
     fn id(&self) -> Identifier {
-        return Identifier{namespace: self.namespace, name:self.name};
+        return Identifier {
+            namespace: self.namespace.clone(),
+            name: self.name.clone(),
+        };
     }
 }
 

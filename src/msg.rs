@@ -5,7 +5,7 @@ use crate::{
     Error,
     core::{
         config::Config,
-        resource::{TargetResource, deploy::Deploy, service::Service},
+        resource::{TargetResource, deploy::Deploy, identifier::Identifier, service::Service},
         state::state_kind::StateKind,
     },
 };
@@ -28,8 +28,8 @@ pub enum Message {
 
         /// the kube resournce id like {namespace}/{name},
         /// namespace 'default' will be used if id is simply {name}
-        #[arg(value_name("NAMESPACE/NAME"))]
-        resource_id: String,
+        #[arg(value_name("NAMESPACE/NAME"), value_parser = clap::value_parser!(Identifier))]
+        resource_id: Identifier,
 
         /// The target state to which the resource will be set
         state: StateKind,
@@ -81,7 +81,7 @@ pub enum ResourceType {
     Deploy,
 }
 
-async fn set_rsc_process<T>(state: StateKind, resource_name: String) -> Result<(), Error>
+async fn set_rsc_process<T>(state: StateKind, resource_name: Identifier) -> Result<(), Error>
 where
     T: TargetResource<'static>,
 {
@@ -95,7 +95,7 @@ where
         .iter_mut()
         .find(|r| r.id() == resource_name)
         .ok_or(error::Msg::ResourceNotFound {
-            resource_id: resource_name,
+            resource_id: resource_name.to_string(),
         })?;
 
     match state {

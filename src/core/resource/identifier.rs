@@ -1,3 +1,6 @@
+use std::fmt::Display;
+use std::str::FromStr;
+
 use serde::{Deserialize, Serialize};
 use tracing::trace;
 
@@ -17,11 +20,11 @@ pub mod error {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(try_from = "String", into = "String")]
 pub struct Identifier {
-    namespace: ResourceName,
-    name: ResourceName,
+    pub namespace: ResourceName,
+    pub name: ResourceName,
 }
 
 impl TryFrom<String> for Identifier {
@@ -54,8 +57,22 @@ impl TryFrom<String> for Identifier {
     }
 }
 
+impl FromStr for Identifier {
+    type Err = IdentifierError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::try_from(s.to_string())
+    }
+}
+
 impl Into<String> for Identifier {
     fn into(self) -> String {
         format!("{}/{}", self.namespace, self.name)
+    }
+}
+
+impl Display for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}/{}", self.namespace, self.name)
     }
 }

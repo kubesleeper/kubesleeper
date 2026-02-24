@@ -19,7 +19,7 @@ pub mod error {
 /// * Name should contain only lowercase alphanumeric characters, `-` or `.`.
 /// * Name should start with an alphanumeric character.
 /// * Name should end with an alphanumeric character.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(try_from = "String", into = "String")]
 pub struct ResourceName(String);
 

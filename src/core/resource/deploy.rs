@@ -4,14 +4,13 @@ use kube::{
     api::{ListParams, Patch, PatchParams},
     runtime::reflector::Lookup,
 };
+
 use serde::Serialize;
 use tracing::debug;
 
 use crate::core::{
     resource::{
-        constantes::*,
-        error,
-        resource_name::{ResourceName, error::ResourceNameError},
+        constantes::*, error, identifier::Identifier, resource_name::error::ResourceNameError,
     },
     state::state_kind::StateKind,
 };
@@ -21,13 +20,12 @@ use tracing::log::info;
 
 #[derive(Serialize)]
 pub struct Deploy {
-    pub id: String,
-    pub name: ResourceName,
-    pub namespace: ResourceName,
+    pub id: Identifier,
     pub replicas: i32,
 
     pub store_replicas: i32,
 }
+
 impl TryFrom<&Deployment> for Deploy {
     type Error = error::Resource;
 
@@ -60,11 +58,11 @@ impl TryFrom<&Deployment> for Deploy {
                 error: e.to_string(),
             })?;
 
-        let id = format!("{namespace}/{name}");
+        let id = Identifier { namespace, name };
 
         let replicas = deploy.spec.as_ref().and_then(|s| s.replicas).ok_or(
             error::ResourceParse::MissingValue {
-                id: format!("{id}"),
+                id: id.to_string(),
                 value: ".spec".to_string(),
             },
         )?;
@@ -81,7 +79,7 @@ impl TryFrom<&Deployment> for Deploy {
                 .map(|raw_store_replicas| {
                     raw_store_replicas.parse::<i32>().map_err(|err| {
                         error::ResourceParse::ParseFailed {
-                            id: format!("{id}"),
+                            id: id.to_string(),
                             value: format!(
                                 ".annotations.{}{}",
                                 KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_REPLICAS_KEY
@@ -91,7 +89,7 @@ impl TryFrom<&Deployment> for Deploy {
                     })
                 })
                 .unwrap_or(Err(error::ResourceParse::MissingAnnotationInSleepState {
-                    id: format!("{id}"),
+                    id: id.to_string(),
                     annotation: format!(
                         "{}{}",
                         KUBESLEEPER_ANNOTATION_PREFIX, ANNOTATION_STORE_REPLICAS_KEY
@@ -103,8 +101,6 @@ impl TryFrom<&Deployment> for Deploy {
 
         Ok(Deploy {
             id,
-            name,
-            namespace,
             replicas,
             store_replicas,
         })
@@ -200,9 +196,9 @@ impl super::TargetResource<'static> for Deploy {
         });
         let params = PatchParams::default();
         let patch = Patch::Merge(&patch);
-        Self::get_k8s_api(Some(&self.namespace.to_string()))
+        Self::get_k8s_api(Some(&self.id.namespace.to_string()))
             .await?
-            .patch(&self.name.to_string(), &params, &patch)
+            .patch(&self.id.name.to_string(), &params, &patch)
             .await?;
 
         Ok(())
@@ -211,20 +207,20 @@ impl super::TargetResource<'static> for Deploy {
     async fn get_k8s_resource(&self) -> Result<Self::K8sResource, error::Resource> {
         let lp = ListParams::default()
             .match_any()
-            .fields(&format!("metadata.name={}", self.name));
+            .fields(&format!("metadata.name={}", self.id.name));
 
-        Self::get_k8s_api(Some(&self.namespace.to_string()))
+        Self::get_k8s_api(Some(&self.id.namespace.to_string()))
             .await?
             .list(&lp)
             .await?
             .into_iter()
             .next()
             .ok_or(error::Resource::K8sResourceNotFound {
-                id: self.id.clone(),
+                id: self.id.to_string(),
             })
     }
 
-    fn id(&self) -> String {
+    fn id(&self) -> Identifier {
         return self.id.clone();
     }
 }
