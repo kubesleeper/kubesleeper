@@ -4,7 +4,22 @@ use crate::core::resource::identifier::Identifier;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Group {
-    name: String,
-    deploys: Vec<Identifier>,
-    services: Vec<Identifier>,
+    pub name: String,
+    pub deploys: Vec<Identifier>,
+    pub services: Vec<Identifier>,
 }
+
+/*
+groups:
+  1:
+   deploys:
+    - a/b
+    - d/f
+   service:
+    - a/b
+  2:
+     deploys:
+      - a/b
+     service:
+      - a/b
+*/
