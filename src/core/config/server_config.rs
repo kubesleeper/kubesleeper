@@ -1,6 +1,5 @@
-use std::num::NonZeroU16;
 use serde::{Deserialize, Serialize};
-
+use std::num::NonZeroU16;
 
 #[derive(Serialize, Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]

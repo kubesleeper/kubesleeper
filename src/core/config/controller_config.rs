@@ -1,7 +1,6 @@
-use std::time::Duration;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::num::NonZeroU32;
-
+use std::time::Duration;
 
 #[derive(Serialize, Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]

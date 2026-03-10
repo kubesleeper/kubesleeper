@@ -1,30 +1,25 @@
+pub mod controller_config;
 mod groups;
 pub mod server_config;
-pub mod controller_config;
+mod validator;
 
 use crate::core::config::controller_config::ControllerConfig;
 use crate::core::config::groups::Group;
 use crate::core::config::server_config::ServerConfig;
 use crate::core::resource::identifier::Identifier;
 use crate::core::resource::resource_name::ResourceName;
-use serde::{Deserialize, Deserializer, Serialize};
-use std::collections::HashSet;
-use std::num::{NonZeroU16, NonZeroU32};
+use crate::core::config::validator::validator;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::time::Duration;
 use tracing::log::info;
 use tracing::{debug, warn};
-
-
 
 const DEFAULT_CONFIG_FILE_PATH: &str = "kubesleeper.yaml";
 
 #[derive(Default, Serialize, Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 // TODO: Rename ServerConfig to Server and rename ControllerConfig to another name more explicit than "controller" for key
-// TODO: Verify that there is no overlap between groups and auto_managed_namespace
-// TODD: check non-empty list
 pub struct Config {
     #[serde(default)]
     pub server: ServerConfig,
@@ -39,8 +34,6 @@ pub struct Config {
     pub auto_managed_namespace: Vec<ResourceName>,
 }
 
-
-
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
     #[error("Can't open {path} : {err}.")]
@@ -54,26 +47,39 @@ pub enum ConfigError {
 
     #[error("File not found : '{0}'")]
     FileNotFound(String),
-    
+
     #[error("Validation error(s) : {}", display_validation_errors(.0))]
     ValidationErrors(Vec<ValidationError>),
 }
 
-pub fn display_validation_errors(errors : &Vec<ValidationError>) -> String{
-    errors.iter().fold(String::new(), |acc, val| format!("{}\n  - {}", acc, val.to_string()))
+pub fn display_validation_errors(errors: &Vec<ValidationError>) -> String {
+    errors.iter().fold(String::new(), |acc, val| {
+        format!("{}\n  - {}", acc, val.to_string())
+    })
 }
-
-
 
 #[derive(Debug, thiserror::Error)]
 pub enum ValidationError {
-    #[error("Service '{0}' is present in different groups.",)]
+    #[error("Service '{0}' is present in different groups.")]
     ServiceConflict(Identifier),
 
-    #[error("Deployement '{0}' is present in different groups.")]
+    #[error("Deployment '{0}' is present in different groups.")]
     DeployConflict(Identifier),
-}
 
+    #[error("The group name 'groups.{0}' is used for several groups.")]
+    GroupNameConflict(String),
+
+    #[error(
+        "The resource 'groups.{group_name}.{r#type}.{id}' use the namespace '{namespace}' which is \
+    already in the auto managed list."
+    )]
+    AutoManagedConflict {
+        group_name: String,
+        r#type: String,
+        id: Identifier,
+        namespace: ResourceName,
+    },
+}
 
 pub fn parse(path: Option<PathBuf>) -> Result<Config, ConfigError> {
     let path: Option<PathBuf> = match path {
@@ -125,47 +131,8 @@ pub fn parse(path: Option<PathBuf>) -> Result<Config, ConfigError> {
             serde_yaml::from_reader(file)?
         }
     };
-    
+
     validator(&config)?;
 
     Ok(config)
-}
-
-
-fn validator(config: &Config) -> Result<(),ConfigError> {
-    
-    let mut validation_errors = Vec::<ValidationError>::new();
-        
-    for (i, Group{name: r_name,services: r_services, deploys: r_deploys}) in config.groups.iter().enumerate() {
-        for Group{name: l_name ,services: l_services, deploys: l_deploys} in config.groups[i+1..].iter() {
-            if l_name != r_name  {
-                
-                // services
-                let dup_services = l_services.iter().filter(|e| r_services.contains(e)).collect::<Vec<&Identifier>>();
-                validation_errors.append(
-                    &mut dup_services.into_iter().map(
-                        |d| ValidationError::ServiceConflict(d.clone())
-                    )
-                    .collect::<Vec<ValidationError>>()
-                );
-                
-                // deploys
-                let dup_deploys = l_deploys.iter().filter(|e| r_deploys.contains(e)).collect::<Vec<&Identifier>>();
-                validation_errors.append(
-                    &mut dup_deploys.into_iter().map(
-                        |d| ValidationError::DeployConflict(d.clone())
-                    )
-                    .collect::<Vec<ValidationError>>()
-                );
-            }
-        }
-    }
-    
-    // TODO : check auto_manage <=> groups
-    // TODO : check auto_manage <=> auto_manage
-
-    match validation_errors.len() {
-        0 => Ok(()),
-        _ => Err(ConfigError::ValidationErrors(validation_errors)) 
-    }
 }

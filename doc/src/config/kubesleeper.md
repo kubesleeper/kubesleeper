@@ -4,14 +4,35 @@ Main configuration of kubesleeper should be set in a `./kubesleeper.yaml` file.
 
 See [CLI parameters](/guide/cli#config-path) to set a specific path.
 
-> [!NOTE] 
-> All values listed on this page represent the system's default configurations.
+## Resources management
 
-## Server
+### Groups
+A group should be defined with a name, deploys and services
+
+```yaml
+groups:
+  - name: MyGroup
+    deploys:
+      - a/b
+    services:
+      - a/c
+```
+
+### Auto managed namespace
+Namespace can be auto managed.
+
+```yaml
+auto_managed_namespace:
+  - a
+```
+
+## System configuration
+
+### Server
 
 The Kubesleeper server manages two main functions: serving the waiting page to users and fetching incoming network traffic.
 
-### Port
+#### Port
 The port of the kubesleeper server.
 
 ```yaml
@@ -19,11 +40,11 @@ server:
     port: 8000
 ```
 
-## Controller
+### Controller
 
 The Kubesleeper controller manages the lifecycle of applications.
 
-### _Sleepiness_ duration
+#### _Sleepiness_ duration
 Inactivity duration (in seconds) before entering [_Asleep_ state](/guide/how_it_works.html#step-3-asleep-state---scaling-down). 
 > [!NOTE]
 > See _[How it works](/guide/how_it_works.html#how-it-works)_ to have better understanding of _Sleepiness_.
@@ -33,7 +54,7 @@ controller:
     sleepiness_duration: 15
 ```
 
-### Refresh interval
+#### Refresh interval
 The time interval (in seconds) between two checks of traffic activity.
 
 ```yaml
@@ -42,6 +63,7 @@ controller:
 ```
 
 ---
+
 
 ## Default configuration
 
