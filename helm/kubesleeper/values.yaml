@@ -1,0 +1,8 @@
+image:
+  name: ghcr.io/kubesleeper/kubesleeper
+config:
+  server:
+    port: 8000
+  controller:
+    sleepiness_duration: 15
+    refresh_interval: 5
