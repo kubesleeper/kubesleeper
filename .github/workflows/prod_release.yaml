@@ -4,13 +4,15 @@ on:
   push:
     branches:
       - main
+      - helm
 
 jobs:
   version:
     runs-on: ubuntu-latest
     
     outputs:
-      version: ${{ steps.get_version.outputs.version }}
+      src_version: ${{ steps.get-kubsleeper-version.outputs.src_version }}
+      helm_version: ${{ steps.get-helm-version.outputs.helm_version }}
 
     steps:
       - name: Checkout
@@ -20,36 +22,42 @@ jobs:
 
       - name: Setup
         run: |
-          wget https://github.com/eloi-menaud/c14/releases/download/v3.0.0/c14
+          wget https://github.com/eloi-menaud/c14/releases/download/v4.0.0/c14
           chmod +x c14
       
-      - name: Get version from c14
-        id: get_version
+      - name: Get kubesleeper version
+        id: get-kubsleeper-version
         run: |
-          echo "get new version from last version tag"
-          sanitized_version=$(./c14 --strict --report | sed s/^v//)
-          cat c14-report.json
-          echo
-          if test "$sanitized_version" == "0.0.0"
-          then
-            echo "Version has not been changed, skipping"
-            sanitized_version=""
-          fi
-          echo "version=$sanitized_version" >> $GITHUB_OUTPUT
+          echo "get new source version"
+          rsc_folders="src Cargo.toml Dockerfile"
+          base_commit=$(git rev-list -n 1 $GITHUB_REF~1 -- $rsc_folders)
+          base_version=$(cat Cargo.toml | grep -o '^version\s*=.*$' | cut -d "=" -f 2 | sed "s|[\"']||g")
+          version=$(./c14 version --strict --base-version $base_version --from $base_commit --target $rsc_folders)
+          echo "src_version=$version" >> $GITHUB_OUTPUT
+        
+      - name: Get helm version
+        id: get-helm-version
+        run: |
+          echo "get new helm version"
+          rsc_folders="helm"
+          base_commit=$(git rev-list -n 1 $GITHUB_REF~1 -- $rsc_folders)
+          base_version=$(cat helm/kubesleeper/Chart.yaml | grep -o '^version\s*:.*$' | cut -d ":" -f 2 | sed "s|[\"']||g")
+          version=$(./c14 version --strict --base-version $base_version --from $base_commit --target $rsc_folders)
+          echo "helm_version=$version" >> $GITHUB_OUTPUT
 
 
-  build:
+  build-kubesleeper:
     needs: version
     runs-on: ubuntu-latest
-    if: ${{ needs.version.outputs.version != '' }} 
+    if: ${{ needs.version.outputs.src_version != '' }}
     steps:
       - name: Code Checkout
         uses: actions/checkout@v4
 
-      - name: Override cargo.toml version
+      - name: Overwrite Cargo.toml version
         run: |
-          version="${{ needs.version.outputs.version }}"
-          echo "Overriding Cargo.toml with version: $version"
+          version="${{ needs.version.outputs.src_version }}"
+          echo "Overwriting Cargo.toml with version: $version"
           sed -i "s/^version\s*=.*$/version = \"${version}\"/" Cargo.toml
           git -c color.ui=always diff Cargo.toml
 
@@ -81,62 +89,88 @@ jobs:
           push: true
           tags: |
             ghcr.io/kubesleeper/kubesleeper:latest
-            ghcr.io/kubesleeper/kubesleeper:${{ needs.version.outputs.version }}
+            ghcr.io/kubesleeper/kubesleeper:${{ needs.version.outputs.src_version }}
 
-  release:
-    needs:
-      - build
-      - version
+
+  build-helm:
+    needs: version
     runs-on: ubuntu-latest
-
-    if: ${{ needs.version.outputs.version != '' }}
-
-    permissions:
-      contents: write # for 'git push' and 'action-gh-release'
-
+    if: ${{ needs.version.outputs.helm_version != '' || needs.version.outputs.src_version != '' }}
     steps:
-      # The main branch is protected, it's not possible to push on it, we can only merge a MR
-      # But the version (in Cargo.toml) is automatically managed
-      # To allow Github Action to push, it's needed to creat a Github App (an empty one)
-      # with "content > Read & Write" access, and allowwing this app to push on main.
-      #
-      # It's first needed to create a Token from the Private Key
-      - name: Generate App Token
-        id: generate_token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ secrets.CI_APP_ID }}
-          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
-          permission-contents: write
-
-     # Use Github App as git user
       - name: Code Checkout
         uses: actions/checkout@v4
-        with:
-            token: ${{ steps.generate_token.outputs.token }}
 
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: built-products
-          path: .
-
-      - name: Pushing Cargo.toml with updated version
+      - name: Overwrite Chart.yaml version
         run: |
-          git -c color.ui=always diff Cargo.toml
-          git add Cargo.toml
-
-          git config user.name "kubesleeper ci bot"
-          git config user.email "kubesleeper-ci-bot@kubesleeper.com"
-
-          git commit -m "feat: auto ci versioning v${{ needs.version.outputs.version }} [skip ci]"
-          git push --force origin main
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ needs.version.outputs.version }}
-          name: Release v${{ needs.version.outputs.version }}
-          files: dist/kubesleeper
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          helm_version="${{ needs.version.outputs.helm_version }}"
+          echo "Overwriting Chart.yaml with version: $helm_version"
+          sed -i "s/^version\s*:.*$/version: \"${helm_version}\"/" helm/kubesleeper/Chart.yaml
+          
+          src_version="${{ needs.version.outputs.src_version }}"
+          echo "Overwriting Chart.yaml with appVersion: $src_version"
+          sed -i "s/^appVersion\s*:.*$/appVersion: \"${src_version}\"/" helm/kubesleeper/Chart.yaml
+          git -c color.ui=always diff helm/kubesleeper/Chart.yaml
+        
+      - name: Build helm release
+        run: |
+            helm package ./helm/kubesleeper
+          
+          
+#  release:
+#    needs:
+#      - version
+#      - build-kubesleeper
+#      - build-helm
+#    runs-on: ubuntu-latest
+#
+#    if: ${{ needs.version.outputs.src_version != '' }}
+#
+#    permissions:
+#      contents: write # for 'git push' and 'action-gh-release'
+#
+#    steps:
+#      # The main branch is protected, it's not possible to push on it, we can only merge a MR
+#      # But the version (in Cargo.toml) is automatically managed
+#      # To allow Github Action to push, it's needed to creat a Github App (an empty one)
+#      # with "content > Read & Write" access, and allowwing this app to push on main.
+#      #
+#      # It's first needed to create a Token from the Private Key
+#      - name: Generate App Token
+#        id: generate_token
+#        uses: actions/create-github-app-token@v1
+#        with:
+#          app-id: ${{ secrets.CI_APP_ID }}
+#          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+#          permission-contents: write
+#
+#     # Use Github App as git user
+#      - name: Code Checkout
+#        uses: actions/checkout@v4
+#        with:
+#            token: ${{ steps.generate_token.outputs.token }}
+#
+#      - name: Download artifacts
+#        uses: actions/download-artifact@v4
+#        with:
+#          name: built-products
+#          path: .
+#
+#      - name: Pushing Cargo.toml with updated version
+#        run: |
+#          git -c color.ui=always diff Cargo.toml
+#          git add Cargo.toml
+#
+#          git config user.name "kubesleeper ci bot"
+#          git config user.email "kubesleeper-ci-bot@kubesleeper.com"
+#
+#          git commit -m "ci: auto ci versioning v${{ needs.version.outputs.src_version }} [skip ci]"
+#          git push --force origin main
+#
+#      - name: Create GitHub Release
+#        uses: softprops/action-gh-release@v2
+#        with:
+#          tag_name: v${{ needs.version.outputs.src_version }}
+#          name: Release v${{ needs.version.outputs.src_version }}
+#          files: dist/kubesleeper
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
