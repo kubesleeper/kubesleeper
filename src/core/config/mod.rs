@@ -61,11 +61,11 @@ pub fn display_validation_errors(errors: &Vec<ValidationError>) -> String {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ValidationError {
-    #[error("Service '{0}' is present in different groups.")]
-    ServiceConflict(Identifier),
+    #[error("Service '{0}' is present in '{1}.")]
+    ServiceConflict(Identifier, Identifier),
 
     #[error("Deployment '{0}' is present in different groups.")]
-    DeployConflict(Identifier),
+    DeployConflict(Identifier, Identifier),
 }
 
 pub fn parse(path: Option<PathBuf>) -> Result<Config, ConfigError> {

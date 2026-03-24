@@ -1,7 +1,7 @@
 use crate::core::config::groups::Group;
 use crate::core::config::{Config, ConfigError, ValidationError};
 use crate::core::resource::identifier::Identifier;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Check if there are no overlapping Identifier between groups
 ///
@@ -27,33 +27,51 @@ fn check_duplicate_identifier(valid_groups: &HashMap<String, Group>) -> Vec<Vali
             deploys: r_deploys,
         },
     ) in ref_valid_groups.iter().enumerate()
-    {
+    {        
         for Group {
             services: l_services,
             deploys: l_deploys,
         } in ref_valid_groups[i + 1..].iter()
         {
             // services
-            let dup_services = l_services
-                .iter()
-                .filter(|e| r_services.contains(e))
-                .collect::<Vec<&Identifier>>();
+            let mut dup_services = HashSet::new();
+            for r_service in r_services {
+                for l_service in l_services {
+                    if r_service == l_service || r_service.includes(l_service)
+                    {
+                        dup_services.insert((r_service, l_service));
+                    }
+                    else if l_service.includes(r_service)
+                    {
+                        dup_services.insert((l_service, r_service));
+                    }
+                }
+            }
             resource_conflicts.append(
                 &mut dup_services
                     .into_iter()
-                    .map(|d| ValidationError::ServiceConflict(d.clone()))
+                    .map(|(e, f)| ValidationError::ServiceConflict(e.clone(),f.clone()))
                     .collect::<Vec<ValidationError>>(),
             );
 
             // deploys
-            let dup_deploys = l_deploys
-                .iter()
-                .filter(|e| r_deploys.contains(e))
-                .collect::<Vec<&Identifier>>();
+            let mut dup_deploys = HashSet::new();
+            for r_deploy in r_deploys {
+                for l_deploy in l_deploys {
+                    if r_deploy == l_deploy || r_deploy.includes(l_deploy)
+                    {
+                        dup_deploys.insert((r_deploy, l_deploy));
+                    }
+                    else if l_deploy.includes(r_deploy)
+                    {
+                        dup_deploys.insert((r_deploy, r_deploy));
+                    }
+                }
+            }
             resource_conflicts.append(
                 &mut dup_deploys
                     .into_iter()
-                    .map(|d| ValidationError::DeployConflict(d.clone()))
+                    .map(|(e, f)| ValidationError::DeployConflict(e.clone(),f.clone()))
                     .collect::<Vec<ValidationError>>(),
             );
         }

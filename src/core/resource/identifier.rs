@@ -20,7 +20,7 @@ pub mod error {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(try_from = "String", into = "String")]
 pub struct Identifier {
     pub namespace: ResourceName,
@@ -74,5 +74,19 @@ impl From<Identifier> for String {
 impl Display for Identifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}/{}", self.namespace, self.name)
+    }
+}
+
+impl Identifier {
+    ///
+    /// Check if other is included in self
+    ///
+    /// a/b is included in a/*
+    /// a/b is not included in b/*
+    /// a/b is bot included in a/c
+    ///
+    pub fn includes(&self, other: &Self) -> bool {
+        &self.namespace.to_string() == &other.namespace.to_string()
+            && (&self.name.to_string() == "*")
     }
 }
