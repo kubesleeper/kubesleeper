@@ -6,10 +6,11 @@ mod validator;
 use crate::core::config::controller_config::ControllerConfig;
 use crate::core::config::groups::Group;
 use crate::core::config::server_config::ServerConfig;
+use crate::core::config::validator::validator;
 use crate::core::resource::identifier::Identifier;
 use crate::core::resource::resource_name::ResourceName;
-use crate::core::config::validator::validator;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tracing::log::info;
@@ -28,7 +29,7 @@ pub struct Config {
     pub controller: ControllerConfig,
 
     #[serde(default)]
-    pub groups: Vec<Group>,
+    pub groups: HashMap<String, Group>,
 
     #[serde(default)]
     pub auto_managed_namespace: Vec<ResourceName>,
@@ -65,20 +66,6 @@ pub enum ValidationError {
 
     #[error("Deployment '{0}' is present in different groups.")]
     DeployConflict(Identifier),
-
-    #[error("The group name 'groups.{0}' is used for several groups.")]
-    GroupNameConflict(String),
-
-    #[error(
-        "The resource 'groups.{group_name}.{r#type}.{id}' use the namespace '{namespace}' which is \
-    already in the auto managed list."
-    )]
-    AutoManagedConflict {
-        group_name: String,
-        r#type: String,
-        id: Identifier,
-        namespace: ResourceName,
-    },
 }
 
 pub fn parse(path: Option<PathBuf>) -> Result<Config, ConfigError> {
