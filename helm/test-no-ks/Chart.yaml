@@ -1,0 +1,8 @@
+apiVersion: v2
+name: test-no-ks
+description: Chart to deploy mini 2 nginx deployments linked to an ingress 
+type: application
+
+version: 1.0.0
+
+appVersion: "1.0.0"

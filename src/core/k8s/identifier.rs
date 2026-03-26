@@ -4,11 +4,13 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use tracing::trace;
 
-use crate::core::resource::resource_name::error::ResourceNameError;
-use crate::core::resource::{identifier::error::IdentifierError, resource_name::ResourceName};
+use crate::core::k8s::{
+    identifier::error::IdentifierError,
+    resource_name::{ResourceName, error::ResourceNameError},
+};
 
 pub mod error {
-    use crate::core::resource::resource_name::error::ResourceNameError;
+    use crate::core::k8s::resource_name::error::ResourceNameError;
 
     #[derive(Debug, thiserror::Error)]
     pub enum IdentifierError {
@@ -20,7 +22,7 @@ pub mod error {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(try_from = "String", into = "String")]
 pub struct Identifier {
     pub namespace: ResourceName,
@@ -78,15 +80,11 @@ impl Display for Identifier {
 }
 
 impl Identifier {
-    ///
-    /// Check if other is included in self
-    ///
-    /// a/b is included in a/*
-    /// a/b is not included in b/*
-    /// a/b is bot included in a/c
-    ///
-    pub fn includes(&self, other: &Self) -> bool {
-        &self.namespace.to_string() == &other.namespace.to_string()
-            && (&self.name.to_string() == "*")
+    pub fn new_unknow() -> Identifier {
+        let r = ResourceName::try_from("unknow".to_string()).unwrap();
+        Identifier {
+            namespace: r.clone(),
+            name: r,
+        }
     }
 }

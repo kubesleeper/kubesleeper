@@ -5,24 +5,26 @@ use std::path::PathBuf;
 use std::process;
 
 use clap::{Parser, Subcommand, ValueEnum};
+use k8s_openapi::api::apps::v1::Deployment;
 use tokio_cron_scheduler::JobSchedulerError;
 
 use crate::core::config;
-use crate::core::resource::deploy::Deploy;
+
+use crate::core::k8s::kubesleeper::{KubesleeperError, check_kubesleeper};
 use crate::core::state::state::SLEEPINESS_DURATION;
 use crate::core::state::state_kind::StateKind;
 use crate::core::{
     ingress::error::IngressError,
     logger::{self, init_logger},
-    resource, server,
+    server,
     server::error::ServerError,
     state::state::create_schedule,
 };
 
 mod msg;
-use crate::msg::{Message, error};
+use crate::msg::{Message, MsgError};
 mod status;
-use crate::status::status;
+use crate::status::{StatusError, status};
 
 #[derive(Parser)]
 #[command(name = "kubesleeper", version)]
@@ -92,10 +94,7 @@ enum Manual {
 #[derive(Debug, thiserror::Error)]
 enum Error {
     #[error(transparent)]
-    ResourceError(#[from] resource::error::Resource),
-
-    #[error(transparent)]
-    MsgError(#[from] error::Msg),
+    MsgError(#[from] MsgError),
 
     #[error(transparent)]
     IngressError(#[from] IngressError),
@@ -111,6 +110,12 @@ enum Error {
 
     #[error("Fail to parse configuration file : {0}")]
     ConfigError(#[from] config::ConfigError),
+
+    #[error(transparent)]
+    KubesleeperError(#[from] KubesleeperError),
+
+    #[error("Fail to get cluster kubesleeper status : {0}")]
+    StatusError(#[from] StatusError),
 }
 
 async fn process() -> Result<(), Error> {
@@ -123,7 +128,7 @@ async fn process() -> Result<(), Error> {
 
     match cli.command {
         Commands::Start => {
-            Deploy::check_kubesleeper().await?;
+            check_kubesleeper().await?;
             SLEEPINESS_DURATION
                 .set(config.controller.sleepiness_duration)
                 .expect("Failed to set up sleepiness duration");
@@ -135,7 +140,7 @@ async fn process() -> Result<(), Error> {
         }
         Commands::Msg(e) => msg::process(e, config).await?,
         Commands::Status => {
-            Deploy::check_kubesleeper().await?;
+            check_kubesleeper().await?;
             status().await?
         }
     };

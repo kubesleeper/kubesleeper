@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 
-use crate::core::resource::constantes::*;
+use crate::core::k8s::constantes::KUBESLEEPER_ANNOTATION_PREFIX;
 
 #[derive(Debug, Default)]
 pub struct Annotations(HashMap<String, String>);
