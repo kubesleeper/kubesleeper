@@ -1,7 +1,6 @@
-use crate::core::{
-    ingress::traefik::Traefik,
-    resource::{TargetResource, deploy::Deploy, service::Service},
-};
+use crate::core::ingress::traefik::Traefik;
+use crate::core::k8s::deployment::KsDeployment;
+use crate::core::k8s::service::KsService;
 
 use crate::core::{
     ingress::IngressType,
@@ -12,6 +11,8 @@ use crate::core::{
     },
 };
 
+use k8s_openapi::api::apps::v1::Deployment;
+use k8s_openapi::api::core::v1::Service;
 use lazy_static::lazy_static;
 use std::num::NonZeroU32;
 use std::{
@@ -134,20 +135,20 @@ impl State {
         match action {
             Some(StateKind::Asleep) => {
                 debug!("Making all Deploy 'Asleep'");
-                for deploy in Deploy::get_all().await?.iter_mut() {
-                    deploy.sleep().await?
+                for deploy in Deployment::get_all().await?.iter_mut() {
+                    deploy.ks_sleep().await?;
                 }
                 for service in Service::get_all().await?.iter_mut() {
-                    service.sleep().await?
+                    service.ks_sleep().await?;
                 }
             }
             Some(StateKind::Awake) => {
                 debug!("Making all Deploy 'Awake'");
-                for deploy in Deploy::get_all().await?.iter_mut() {
-                    deploy.wake().await?
+                for deploy in Deployment::get_all().await?.iter_mut() {
+                    deploy.ks_wake().await?;
                 }
                 for service in Service::get_all().await?.iter_mut() {
-                    service.wake().await?
+                    service.ks_wake().await?;
                 }
             }
             None => {}
@@ -211,7 +212,7 @@ pub async fn create_schedule(refresh_interval: NonZeroU32) -> JobScheduler {
 }
 impl Default for State {
     fn default() -> Self {
-        // TODO: chose first awake or asleep from config
+        // TODO: choose first awake or asleep from config
         State {
             since: Notification {
                 kind: NotificationKind::Activity,

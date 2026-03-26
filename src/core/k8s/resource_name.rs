@@ -1,8 +1,9 @@
-use crate::core::resource::resource_name::error::ResourceNameError;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::sync::OnceLock;
+
+use crate::core::k8s::resource_name::error::ResourceNameError;
 
 pub mod error {
     #[derive(Debug, thiserror::Error)]
@@ -19,7 +20,7 @@ pub mod error {
 /// * Name should contain only lowercase alphanumeric characters, `-` or `.`.
 /// * Name should start with an alphanumeric character.
 /// * Name should end with an alphanumeric character.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(try_from = "String", into = "String")]
 pub struct ResourceName(String);
 

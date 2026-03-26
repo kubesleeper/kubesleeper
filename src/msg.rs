@@ -1,13 +1,16 @@
 use clap::{Subcommand, ValueEnum};
+use k8s_openapi::api::{apps::v1::Deployment, core::v1::Service};
 use tracing::info;
 
-use crate::{
-    Error,
-    core::{
-        config::Config,
-        resource::{TargetResource, deploy::Deploy, identifier::Identifier, service::Service},
-        state::state_kind::StateKind,
+use crate::core::{
+    config::Config,
+    k8s::{
+        deployment::{KsDeployment, KsDeploymentFetchingError, KsDeploymentInteractError},
+        identifier::Identifier,
+        kubesleeper::{KubesleeperError, check_kubesleeper},
+        service::{KsService, KsServiceFetchingError, KsServiceInteractError},
     },
+    state::state_kind::StateKind,
 };
 
 #[derive(Subcommand)]
@@ -38,40 +41,55 @@ pub enum Message {
     StartServer,
 }
 
-pub mod error {
+#[derive(Debug, thiserror::Error)]
+pub enum MsgError {
+    #[error(transparent)]
+    ServerError(#[from] crate::core::server::error::ServerError),
 
-    #[derive(Debug, thiserror::Error)]
-    pub enum Msg {
-        #[error("Resource '{resource_id}' not found")]
-        ResourceNotFound { resource_id: String },
+    #[error(transparent)]
+    KubesleeperError(#[from] KubesleeperError),
 
-        #[error(transparent)]
-        ServerError(#[from] crate::core::server::error::ServerError),
-    }
+    #[error(transparent)]
+    KsDeploymentInteractError(#[from] KsDeploymentInteractError),
+
+    #[error(transparent)]
+    KsServiceInteractError(#[from] KsServiceInteractError),
+
+    #[error(transparent)]
+    KsServiceFetchingError(#[from] KsServiceFetchingError),
+
+    #[error(transparent)]
+    KsDeploymentFetchingError(#[from] KsDeploymentFetchingError),
 }
 
-async fn set(state: StateKind) -> Result<(), Error> {
-    info!("Making all Deploy and Service '{state}'");
-    Deploy::check_kubesleeper().await?;
-
+async fn set_one_deployment_asleep(
+    deployment: &Deployment,
+    state: StateKind,
+) -> Result<(), MsgError> {
     match state {
-        StateKind::Asleep => {
-            for deploy in Deploy::get_all().await?.iter_mut() {
-                deploy.sleep().await?
-            }
-            for service in Service::get_all().await?.iter_mut() {
-                service.sleep().await?
-            }
-        }
-        StateKind::Awake => {
-            for deploy in Deploy::get_all().await?.iter_mut() {
-                deploy.wake().await?
-            }
-            for service in Service::get_all().await?.iter_mut() {
-                service.wake().await?
-            }
-        }
+        StateKind::Asleep => deployment.ks_sleep().await?,
+        StateKind::Awake => deployment.ks_wake().await?,
     }
+    Ok(())
+}
+async fn set_one_service_asleep(service: &Service, state: StateKind) -> Result<(), MsgError> {
+    match state {
+        StateKind::Asleep => service.ks_sleep().await?,
+        StateKind::Awake => service.ks_wake().await?,
+    }
+    Ok(())
+}
+async fn set_all(state: StateKind) -> Result<(), MsgError> {
+    info!("Making all Deploy and Service '{state}'");
+    check_kubesleeper().await?;
+
+    for deploy in Deployment::get_all().await?.iter() {
+        set_one_deployment_asleep(deploy, state).await?;
+    }
+    for service in Service::get_all().await?.iter() {
+        set_one_service_asleep(service, state).await?;
+    }
+
     Ok(())
 }
 
@@ -81,32 +99,7 @@ pub enum ResourceType {
     Deploy,
 }
 
-async fn set_rsc_process<T>(state: StateKind, resource_name: Identifier) -> Result<(), Error>
-where
-    T: TargetResource<'static>,
-{
-    // On garde la vérification commune
-    Deploy::check_kubesleeper().await?;
-
-    // On récupère les ressources du type T
-    let mut resources = T::get_all().await?;
-
-    let target = resources
-        .iter_mut()
-        .find(|r| r.id() == resource_name)
-        .ok_or(error::Msg::ResourceNotFound {
-            resource_id: resource_name.to_string(),
-        })?;
-
-    match state {
-        StateKind::Asleep => target.sleep().await?,
-        StateKind::Awake => target.wake().await?,
-    };
-
-    Ok(())
-}
-
-fn dump_config(config: Config) -> Result<(), Error> {
+fn dump_config(config: Config) -> Result<(), MsgError> {
     println!(
         "{}",
         serde_yaml::to_string(&config).unwrap_or(format!("{config:?}"))
@@ -114,16 +107,24 @@ fn dump_config(config: Config) -> Result<(), Error> {
     Ok(())
 }
 
-pub async fn process(msg: Message, config: Config) -> Result<(), Error> {
+pub async fn process(msg: Message, config: Config) -> Result<(), MsgError> {
     match msg {
-        Message::Set { state } => set(state).await,
+        Message::Set { state } => set_all(state).await,
         Message::SetRsc {
             resource_type,
             resource_id,
             state,
         } => match resource_type {
-            ResourceType::Svc => set_rsc_process::<Service>(state, resource_id).await,
-            ResourceType::Deploy => set_rsc_process::<Deploy>(state, resource_id).await,
+            ResourceType::Svc => {
+                let svc = Service::get(resource_id.clone()).await?;
+                set_one_service_asleep(&svc, state).await?;
+                Ok(())
+            }
+            ResourceType::Deploy => {
+                let deploy = Deployment::get(resource_id.clone()).await?;
+                set_one_deployment_asleep(&deploy, state).await?;
+                Ok(())
+            }
         },
         Message::StartServer => crate::core::server::start(config.server.port)
             .await

@@ -6,11 +6,9 @@ mod validator;
 use crate::core::config::controller_config::ControllerConfig;
 use crate::core::config::groups::Group;
 use crate::core::config::server_config::ServerConfig;
-use crate::core::config::validator::validator;
-use crate::core::resource::identifier::Identifier;
-use crate::core::resource::resource_name::ResourceName;
+use crate::core::k8s::identifier::Identifier;
+use crate::core::k8s::resource_name::ResourceName;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tracing::log::info;
@@ -21,6 +19,8 @@ const DEFAULT_CONFIG_FILE_PATH: &str = "kubesleeper.yaml";
 #[derive(Default, Serialize, Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 // TODO: Rename ServerConfig to Server and rename ControllerConfig to another name more explicit than "controller" for key
+// TODO: Verify that there is no overlap between groups and auto_managed_namespace
+// TODD: check non-empty list
 pub struct Config {
     #[serde(default)]
     pub server: ServerConfig,
@@ -61,11 +61,11 @@ pub fn display_validation_errors(errors: &Vec<ValidationError>) -> String {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ValidationError {
-    #[error("Service '{0}' is present in '{1}.")]
-    ServiceConflict(Identifier, Identifier),
+    #[error("Service '{0}' is present in different groups.")]
+    ServiceConflict(Identifier),
 
-    #[error("Deployment '{0}' is present in different groups.")]
-    DeployConflict(Identifier, Identifier),
+    #[error("Deployement '{0}' is present in different groups.")]
+    DeployConflict(Identifier),
 }
 
 pub fn parse(path: Option<PathBuf>) -> Result<Config, ConfigError> {
@@ -122,4 +122,59 @@ pub fn parse(path: Option<PathBuf>) -> Result<Config, ConfigError> {
     validator(&config)?;
 
     Ok(config)
+}
+
+fn validator(config: &Config) -> Result<(), ConfigError> {
+    let mut validation_errors = Vec::<ValidationError>::new();
+
+    for (
+        i,
+        Group {
+            name: r_name,
+            services: r_services,
+            deploys: r_deploys,
+        },
+    ) in config.groups.iter().enumerate()
+    {
+        for Group {
+            name: l_name,
+            services: l_services,
+            deploys: l_deploys,
+        } in config.groups[i + 1..].iter()
+        {
+            if l_name != r_name {
+                // services
+                let dup_services = l_services
+                    .iter()
+                    .filter(|e| r_services.contains(e))
+                    .collect::<Vec<&Identifier>>();
+                validation_errors.append(
+                    &mut dup_services
+                        .into_iter()
+                        .map(|d| ValidationError::ServiceConflict(d.clone()))
+                        .collect::<Vec<ValidationError>>(),
+                );
+
+                // deploys
+                let dup_deploys = l_deploys
+                    .iter()
+                    .filter(|e| r_deploys.contains(e))
+                    .collect::<Vec<&Identifier>>();
+                validation_errors.append(
+                    &mut dup_deploys
+                        .into_iter()
+                        .map(|d| ValidationError::DeployConflict(d.clone()))
+                        .collect::<Vec<ValidationError>>(),
+                );
+            }
+        }
+    }
+
+    // TODO : check auto_manage <=> groups
+    // TODO : check auto_manage <=> auto_manage
+
+    match validation_errors.len() {
+        0 => Ok(()),
+        _ => Err(ConfigError::ValidationErrors(validation_errors)),
+    }
 }
