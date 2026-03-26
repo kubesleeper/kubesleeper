@@ -22,7 +22,7 @@ pub mod error {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(try_from = "String", into = "String")]
 pub struct Identifier {
     pub namespace: ResourceName,
