@@ -1,0 +1,10 @@
+groups:
+  one:
+    deployments:
+        - a/*
+        - x/b
+    services: []
+  tow:
+    deployments:
+        - a/c
+    services: []

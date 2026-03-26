@@ -20,7 +20,7 @@ pub mod error {
 /// * Name should contain only lowercase alphanumeric characters, `-` or `.`.
 /// * Name should start with an alphanumeric character.
 /// * Name should end with an alphanumeric character.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(try_from = "String", into = "String")]
 pub struct ResourceName(String);
 
@@ -30,12 +30,22 @@ impl TryFrom<String> for ResourceName {
     fn try_from(value: String) -> Result<Self, Self::Error> {
         static RE: OnceLock<Regex> = OnceLock::new();
         let re = RE.get_or_init(|| Regex::new(r"^[a-z]([a-z0-9\-.]{0,61}[a-z])?$").unwrap());
-
+        
+        if value == "*" {
+            return Ok(ResourceName(value))
+        };
+        
         if re.is_match(&value) {
             Ok(ResourceName(value))
         } else {
             Err(ResourceNameError::InvalidName(value.to_string()))
         }
+    }
+}
+
+impl ResourceName {
+    pub fn is_star(&self) -> bool {
+        self.0 == "*"
     }
 }
 
@@ -50,3 +60,4 @@ impl From<ResourceName> for String {
         val.0.to_string()
     }
 }
+
