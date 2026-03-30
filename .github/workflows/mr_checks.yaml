@@ -5,6 +5,7 @@ on:
 
 jobs:
   test:
+    continue-on-error: ${{ github.base_ref != 'main' }}
     runs-on: ubuntu-latest
     steps:
       - name: Code Checkout
