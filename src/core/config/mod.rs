@@ -32,10 +32,11 @@ pub struct Config {
     pub controller: ControllerConfig,
 
     #[serde(default)]
-    pub groups: HashMap<String, Group>,
-
-    #[serde(default)]
-    pub auto_managed_namespace: Vec<ResourceName>,
+    #[serde(
+            serialize_with = "Group::serialize_groups",
+            deserialize_with = "Group::deserialize_groups"
+        )]
+    pub groups: Vec<Group>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -117,8 +118,9 @@ pub fn parse(path: Option<PathBuf>) -> Result<Config, ConfigError> {
             serde_yaml::from_reader(file)?
         }
     };
-
+    
     validator::validator(&config)?;
+    info!("Valid config file content");
 
     Ok(config)
 }
