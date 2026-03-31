@@ -110,67 +110,87 @@ jobs:
           echo "Overwriting Chart.yaml with appVersion: $src_version"
           sed -i "s/^appVersion\s*:.*$/appVersion: \"${src_version}\"/" helm/kubesleeper/Chart.yaml
           git -c color.ui=always diff helm/kubesleeper/Chart.yaml
-        
-      - name: Build helm release
+      
+      - name: Helm package
         run: |
-            helm package ./helm/kubesleeper
+            helm package helm/kubesleeper
+        
+      - name: Upload Artifact (helm chart)
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-products
+          path: |
+            helm/kubesleeper/Chart.yaml
+            kubesleeper-*.tgz
+          retention-days: 1
           
           
-#  release:
-#    needs:
-#      - version
-#      - build-kubesleeper
-#      - build-helm
-#    runs-on: ubuntu-latest
-#
-#    if: ${{ needs.version.outputs.src_version != '' }}
-#
-#    permissions:
-#      contents: write # for 'git push' and 'action-gh-release'
-#
-#    steps:
-#      # The main branch is protected, it's not possible to push on it, we can only merge a MR
-#      # But the version (in Cargo.toml) is automatically managed
-#      # To allow Github Action to push, it's needed to creat a Github App (an empty one)
-#      # with "content > Read & Write" access, and allowwing this app to push on main.
-#      #
-#      # It's first needed to create a Token from the Private Key
-#      - name: Generate App Token
-#        id: generate_token
-#        uses: actions/create-github-app-token@v1
-#        with:
-#          app-id: ${{ secrets.CI_APP_ID }}
-#          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
-#          permission-contents: write
-#
-#     # Use Github App as git user
-#      - name: Code Checkout
-#        uses: actions/checkout@v4
-#        with:
-#            token: ${{ steps.generate_token.outputs.token }}
-#
-#      - name: Download artifacts
-#        uses: actions/download-artifact@v4
-#        with:
-#          name: built-products
-#          path: .
-#
-#      - name: Pushing Cargo.toml with updated version
-#        run: |
-#          git -c color.ui=always diff Cargo.toml
-#          git add Cargo.toml
-#
-#          git config user.name "kubesleeper ci bot"
-#          git config user.email "kubesleeper-ci-bot@kubesleeper.com"
-#
-#          git commit -m "ci: auto ci versioning v${{ needs.version.outputs.src_version }} [skip ci]"
-#          git push --force origin main
-#
-#      - name: Create GitHub Release
-#        uses: softprops/action-gh-release@v2
-#        with:
-#          tag_name: v${{ needs.version.outputs.src_version }}
-#          name: Release v${{ needs.version.outputs.src_version }}
-#          files: dist/kubesleeper
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  release:
+    needs:
+      - version
+      - build-kubesleeper
+      - build-helm
+    runs-on: ubuntu-latest
+
+    if: ${{ needs.version.outputs.src_version != '' }}
+
+    permissions:
+      contents: write # for 'git push' and 'action-gh-release'
+
+    steps:
+      # The main branch is protected, it's not possible to push on it, we can only merge a MR
+      # But the version (in Cargo.toml and helm/kubesleeper/Chart.yaml) is automatically managed
+      # To allow Github Action to push, it's needed to creat a Github App (an empty one)
+      # with "content > Read & Write" access, and allowwing this app to push on main.
+      #
+      # It's first needed to create a Token from the Private Key
+      - name: Generate App Token
+        id: generate_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.CI_APP_ID }}
+          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+     # Use Github App as git user
+      - name: Code Checkout
+        uses: actions/checkout@v4
+        with:
+            token: ${{ steps.generate_token.outputs.token }}
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: built-products
+          path: .
+          
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: helm-products
+          path: .
+
+      - name: Push Cargo.toml and helm with updated version
+        run: |
+          git -c color.ui=always diff Cargo.toml
+          git add Cargo.toml
+          
+          git -c color.ui=always diff helm/kubesleeper/Chart.yaml
+          git add helm/kubesleeper/Chart.yaml
+
+          git config user.name "kubesleeper ci bot"
+          git config user.email "kubesleeper-ci-bot@kubesleeper.com"
+
+          git commit -m "ci: auto ci versioning ${{ needs.version.outputs.src_version }}-${{ needs.version.outputs.helm_version }} [skip ci]"
+          git push --force origin main
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.src_version }}-${{ needs.version.outputs.helm_version }}
+          name: Release ${{ needs.version.outputs.src_version }}-${{ needs.version.outputs.helm_version }}
+          files: |
+            dist/kubesleeper
+            kubesleeper-*.tgz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
