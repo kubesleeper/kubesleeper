@@ -11,20 +11,36 @@ A group should be defined with a name, deploys and services
 
 ```yaml
 groups:
-  - name: MyGroup
-    deploys:
-      - a/b
+  <group name>:
+    
     services:
-      - a/c
+      - <list of services>
+    deployments:
+      - <list of deployments>
 ```
 
-### Auto managed namespace
-Namespace can be auto managed.
+The customisation off how kubesleeper manage your resources is defined with Groups (`.groups`).
 
-```yaml
-auto_managed_namespace:
-  - a
-```
+#### Group State
+The state of a group determis all the resources (services and deployments) states. The same service canno't be monitored by multiple groups.
+
+#### `groups.services`
+The `services` list contains all the services that are monitored to determine the group's state :
+- if **ALL** the services listed don't receive activitys for enough time, the group will be set `Asleep`
+- if **AT LEAST ONE** service receive activity the group will be set `Awake`
+
+Services are identified with :
+- `<namespace>/<service name>` : a specific service
+- `<namespace>/*` : meaning "all the services of the namespace <namespace>"
+
+#### `groups.deployments`
+The `deplyments` list all the deployments that are part of the group. The same deployment canno't be monitored by multiple groups.
+
+Deployments are identified with :
+- `<namespace>/<deployment name>` : a specific deployment
+- `<namespace>/*` : meaning "all the deployments of the namespace <namespace>"
+
+
 
 ## System configuration
 

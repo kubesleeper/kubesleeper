@@ -30,6 +30,7 @@
     --quote-bg: #f3f3f3;
     --quote-border: #d5d5d5;
     --theme-popup-bg: white;
+    --inline-code-color: black;
 }
 
 .coal {
@@ -47,6 +48,7 @@
   --quote-bg: hsl(0, 0%, 10%);
   --quote-border: #353535;
   --theme-popup-bg: hsl(0, 0%, 0%);
+  --inline-code-color: white;
   
 }
 
@@ -59,7 +61,9 @@
     border-color: white;
 }
 
-.hljs{
+code, .hljs{
+    color: var(--inline-code-color);
+    padding: 0.1em 0.3em;
     background: var(--quote-bg);
     border: 1px solid var(--quote-border);
     border-radius: 5px;
@@ -85,3 +89,4 @@ h2 {
 h3{
     margin-block-start: 3rem;
 }
+
