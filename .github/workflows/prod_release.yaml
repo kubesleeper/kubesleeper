@@ -22,7 +22,7 @@ jobs:
 
       - name: Setup
         run: |
-          wget https://github.com/eloi-menaud/c14/releases/download/v4.0.0/c14
+          wget https://github.com/eloi-menaud/c14/releases/download/v4.1.0/c14
           chmod +x c14
       
       - name: Get kubesleeper version
