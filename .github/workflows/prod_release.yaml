@@ -182,7 +182,7 @@ jobs:
           git config user.email "kubesleeper-ci-bot@kubesleeper.com"
 
           git commit --allow-empty -m "ci: auto ci versioning ${{ needs.version.outputs.src_version }}-${{ needs.version.outputs.helm_version }} [skip ci]"
-          git push --force origin main
+          git push --force origin ${{ github.github_ref }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
