@@ -181,7 +181,7 @@ jobs:
           git config user.name "kubesleeper ci bot"
           git config user.email "kubesleeper-ci-bot@kubesleeper.com"
 
-          git commit -m "ci: auto ci versioning ${{ needs.version.outputs.src_version }}-${{ needs.version.outputs.helm_version }} [skip ci]"
+          git commit --allow-empty -m "ci: auto ci versioning ${{ needs.version.outputs.src_version }}-${{ needs.version.outputs.helm_version }} [skip ci]"
           git push --force origin main
 
       - name: Create GitHub Release
