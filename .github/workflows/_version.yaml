@@ -31,7 +31,7 @@ jobs:
         run: |
           echo "get new source version"
           rsc_folders="src Cargo.toml"
-          base_commit=$(git rev-list -n 1 $GITHUB_REF_NAME~1 -- $rsc_folders)
+          base_commit=$(git rev-list -n 1 HEAD~1 -- $rsc_folders)
           base_version=$(cat Cargo.toml | grep -o '^version\s*=.*$' | cut -d "=" -f 2 | sed "s|[\"']||g")
           version=$(./c14 version --strict --base-version $base_version --from $base_commit --target $rsc_folders)
           echo "src_version=$version" >> $GITHUB_OUTPUT
@@ -41,7 +41,7 @@ jobs:
         run: |
           echo "get new helm version"
           rsc_folders="helm"
-          base_commit=$(git rev-list -n 1 $GITHUB_REF_NAME~1 -- $rsc_folders)
+          base_commit=$(git rev-list -n 1 HEAD~1 -- $rsc_folders)
           base_version=$(cat helm/kubesleeper/Chart.yaml | grep -o '^version\s*:.*$' | cut -d ":" -f 2 | sed "s|[\"']||g")
           version=$(./c14 version --strict --base-version $base_version --from $base_commit --target $rsc_folders)
           echo "helm_version=$version" >> $GITHUB_OUTPUT
