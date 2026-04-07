@@ -20,6 +20,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup
         run: |
@@ -31,7 +32,7 @@ jobs:
         run: |
           echo "get new source version"
           rsc_folders="src Cargo.toml"
-          base_commit=$(git rev-list -n 1 HEAD~1 -- $rsc_folders)
+          base_commit=$(git rev-list -n 1 $ref~1 -- $rsc_folders)
           base_version=$(cat Cargo.toml | grep -o '^version\s*=.*$' | cut -d "=" -f 2 | sed "s|[\"']||g")
           version=$(./c14 version --strict --base-version $base_version --from $base_commit --target $rsc_folders)
           echo "src_version=$version" >> $GITHUB_OUTPUT
@@ -42,7 +43,7 @@ jobs:
           echo "get new helm version"
           rsc_folders="helm"
           git --no-pager log --reverse
-          base_commit=$(git rev-list -n 1 HEAD~1 -- $rsc_folders)
+          base_commit=$(git rev-list -n 1 $ref~1 -- $rsc_folders)
           base_version=$(cat helm/kubesleeper/Chart.yaml | grep -o '^version\s*:.*$' | cut -d ":" -f 2 | sed "s|[\"']||g")
           version=$(./c14 version --strict --base-version $base_version --from $base_commit --target $rsc_folders)
           echo "helm_version=$version" >> $GITHUB_OUTPUT
