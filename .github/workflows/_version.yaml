@@ -1,0 +1,47 @@
+name: Shared Version Job
+on:
+  workflow_call:
+    outputs:
+      src_version:
+        value: ${{ jobs.version.outputs.src_version }}
+      helm_version:
+        value: ${{ jobs.version.outputs.helm_version }}
+  
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    
+    outputs:
+      src_version: ${{ steps.get-kubsleeper-version.outputs.src_version }}
+      helm_version: ${{ steps.get-helm-version.outputs.helm_version }}
+      
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup
+        run: |
+          wget https://github.com/eloi-menaud/c14/releases/download/v4.1.0/c14
+          chmod +x c14
+      
+      - name: Get kubesleeper version
+        id: get-kubsleeper-version
+        run: |
+          echo "get new source version"
+          rsc_folders="src Cargo.toml"
+          base_commit=$(git rev-list -n 1 $GITHUB_REF~1 -- $rsc_folders)
+          base_version=$(cat Cargo.toml | grep -o '^version\s*=.*$' | cut -d "=" -f 2 | sed "s|[\"']||g")
+          version=$(./c14 version --strict --base-version $base_version --from $base_commit --target $rsc_folders)
+          echo "src_version=$version" >> $GITHUB_OUTPUT
+        
+      - name: Get helm version
+        id: get-helm-version
+        run: |
+          echo "get new helm version"
+          rsc_folders="helm"
+          base_commit=$(git rev-list -n 1 $GITHUB_REF~1 -- $rsc_folders)
+          base_version=$(cat helm/kubesleeper/Chart.yaml | grep -o '^version\s*:.*$' | cut -d ":" -f 2 | sed "s|[\"']||g")
+          version=$(./c14 version --strict --base-version $base_version --from $base_commit --target $rsc_folders)
+          echo "helm_version=$version" >> $GITHUB_OUTPUT

@@ -1,9 +1,13 @@
-name: Checking code
+name: Checks before Merge
 
 on:
   pull_request:
-
+    
 jobs:
+  
+  version:
+    uses: ./.github/workflows/_version.yaml
+    
   test:
     runs-on: ubuntu-latest
     steps:
@@ -17,3 +21,5 @@ jobs:
       - name: Run test
         run: |
           docker build --target image -t test:test .
+          
+
