@@ -41,6 +41,7 @@ jobs:
         run: |
           echo "get new helm version"
           rsc_folders="helm"
+          git --no-pager log --reverse
           base_commit=$(git rev-list -n 1 HEAD~1 -- $rsc_folders)
           base_version=$(cat helm/kubesleeper/Chart.yaml | grep -o '^version\s*:.*$' | cut -d ":" -f 2 | sed "s|[\"']||g")
           version=$(./c14 version --strict --base-version $base_version --from $base_commit --target $rsc_folders)
