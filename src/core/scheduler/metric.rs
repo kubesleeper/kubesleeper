@@ -1,18 +1,7 @@
-use std::{num::NonZeroU32, rc::Rc};
+use crate::core::ingress::AllServiceConnections;
+use std::sync::Arc;
 
-use tokio_cron_scheduler::{Job, JobScheduler};
-use tracing::{info, instrument};
-use uuid::Uuid;
-
-use crate::core::{
-    ingress::{AllServiceConnections, IngressType, traefik::Traefik},
-    state::state::State,
-};
-
-
-pub type RCAllServiceConnections = Rc<AllServiceConnections>;
-
-
+pub type ArcAllServiceConnections = Arc<AllServiceConnections>;
 
 // #[instrument(
 //     name = "schedule"

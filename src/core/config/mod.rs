@@ -1,10 +1,10 @@
 pub mod controller_config;
-mod groups;
+pub(crate) mod groups;
 pub mod server_config;
 mod validator;
 
 use crate::core::config::controller_config::ControllerConfig;
-use crate::core::config::groups::Group;
+pub(crate) use crate::core::config::groups::Group;
 use crate::core::config::server_config::ServerConfig;
 use crate::core::config::validator::{ValidatorError, display_validation_errors};
 use serde::{Deserialize, Serialize};
@@ -52,7 +52,6 @@ pub enum ConfigError {
     #[error("Validation error(s): {}", display_validation_errors(.0))]
     ValidationErrors(#[from] ValidatorError),
 }
-
 
 /// Parses the configuration from a file or returns the default configuration.
 ///

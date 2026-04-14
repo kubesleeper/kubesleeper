@@ -19,7 +19,7 @@ pub mod error {
             field_name: String,
             error: ResourceNameError,
         },
-        
+
         #[error("Invalid format: namespace couldn't be '*', found '{0}'")]
         WildCardInNamesapceError(String),
     }
@@ -38,7 +38,7 @@ impl TryFrom<String> for Identifier {
     fn try_from(value: String) -> Result<Self, Self::Error> {
         if let Some((namespace, name)) = value.split_once("/") {
             trace!("'{value}' parsed: '{namespace}' as namespace and '{name}' as name");
-            let namespace : ResourceName = namespace.to_string().try_into().map_err(|e| {
+            let namespace: ResourceName = namespace.to_string().try_into().map_err(|e| {
                 Self::Error::IdentifierParsingError {
                     field_name: value.to_string(),
                     error: e,
@@ -47,16 +47,16 @@ impl TryFrom<String> for Identifier {
             if namespace.is_star() {
                 return Err(Self::Error::WildCardInNamesapceError(value));
             }
-            
-            let name = name
-                .to_string()
-                .try_into()
-                .map_err(|e| Self::Error::IdentifierParsingError {
-                    field_name: value.to_string(),
-                    error: e,
-                })?;
-            
-            Ok(Identifier {namespace,name})
+
+            let name =
+                name.to_string()
+                    .try_into()
+                    .map_err(|e| Self::Error::IdentifierParsingError {
+                        field_name: value.to_string(),
+                        error: e,
+                    })?;
+
+            Ok(Identifier { namespace, name })
         } else {
             Err(Self::Error::IdentifierParsingError {
                 field_name: value.to_string(),

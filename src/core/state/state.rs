@@ -3,7 +3,7 @@ use crate::core::k8s::deployment::KsDeployment;
 use crate::core::k8s::identifier::Identifier;
 use crate::core::k8s::service::KsService;
 
-use crate::core::scheduler::metric::RCAllServiceConnections;
+use crate::core::scheduler::metric::ArcAllServiceConnections;
 use crate::core::state::{
     StateError,
     notification::{Notification, NotificationKind},
@@ -32,14 +32,14 @@ pub static SLEEPINESS_DURATION: std::sync::OnceLock<Duration> = std::sync::OnceL
 pub struct State {
     pub kind: StateKind,
     pub since: Notification,
-    pub metrics: RCAllServiceConnections,
+    pub metrics: ArcAllServiceConnections,
 }
 
 impl State {
     // TODO: review ingress suppression behavior ?
 
     fn create_notification_from_metrics(
-        service_targets: Vec<Identifier>,
+        service_targets: &Vec<Identifier>,
         // HashMap<ServiceId, HashMap<Ingress Pod Uid, nb of connections received>>
         metrics_data: &AllServiceConnections,
     ) -> Result<Notification, StateError> {
@@ -47,7 +47,10 @@ impl State {
             .lock()
             .map_err(|e| StateError::LockError(format!("{e:?}")))?;
 
-        for (service_id, connections) in metrics_data.iter().filter(|(id,_)| service_targets.contains(id)){
+        for (service_id, connections) in metrics_data
+            .iter()
+            .filter(|(id, _)| service_targets.contains(id))
+        {
             if let Some(stored_metric) = state.metrics.get(service_id) {
                 // Service already exists in the state,
                 // looking for update : is one of ingress pods has proceed at least 1 connection ?
@@ -152,11 +155,18 @@ impl State {
         Ok(())
     }
 
-    pub async fn update_from_metrics(&mut self, service_name: Vec<Identifier>, new_metrics: RCAllServiceConnections) -> Result<(), StateError> {
+    pub async fn update_from_metrics(
+        &mut self,
+        service_name: &Vec<Identifier>,
+        new_metrics: ArcAllServiceConnections,
+    ) -> Result<(), StateError> {
         debug!("Updating state from metrics");
         // Update notification
-        State::update_from_notification(State::create_notification_from_metrics(service_name, &new_metrics)?)
-            .await?;
+        State::update_from_notification(State::create_notification_from_metrics(
+            service_name,
+            &new_metrics,
+        )?)
+        .await?;
 
         // Update metrics
         self.metrics = new_metrics;
@@ -166,7 +176,6 @@ impl State {
 
 impl Default for State {
     fn default() -> Self {
-        // TODO: choose first awake or asleep from config
         State {
             since: Notification {
                 kind: NotificationKind::Activity,

@@ -52,7 +52,6 @@ pub fn display_validation_errors(errors: &ValidatorError) -> String {
     }
 }
 
-
 /// Check if there are no overlapping Identifier between groups
 ///
 /// groups:

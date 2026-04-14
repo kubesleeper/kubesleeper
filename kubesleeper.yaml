@@ -1,0 +1,16 @@
+groups:
+  - name: mongroupe
+    deploys:
+    - a/b
+    services:
+    - a/f
+    - a/g
+    - b/f
+  - name: mongroupe2
+    deploys:
+      - e/b
+    services:
+      - c/d
+
+auto_managed_namespace:
+  - d

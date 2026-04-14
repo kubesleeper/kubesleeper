@@ -1,19 +1,18 @@
 extern crate rocket;
 mod core;
 
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process;
 
 use clap::{Parser, Subcommand, ValueEnum};
-use k8s_openapi::api::apps::v1::Deployment;
 use tokio_cron_scheduler::JobSchedulerError;
 
 use crate::core::config;
 
-use crate::core::ingress::{AllServiceConnections, Connections};
-use crate::core::k8s::identifier::Identifier;
+use crate::core::ingress::AllServiceConnections;
 use crate::core::k8s::kubesleeper::{KubesleeperError, check_kubesleeper};
+use crate::core::scheduler::group::Group;
+use crate::core::scheduler::metric::ArcAllServiceConnections;
 use crate::core::state::state::SLEEPINESS_DURATION;
 use crate::core::state::state_kind::StateKind;
 use crate::core::{
@@ -21,7 +20,6 @@ use crate::core::{
     logger::{self, init_logger},
     server,
     server::error::ServerError,
-    state::state::create_schedule,
 };
 
 mod msg;
@@ -135,13 +133,28 @@ async fn process() -> Result<(), Error> {
             SLEEPINESS_DURATION
                 .set(config.controller.sleepiness_duration)
                 .expect("Failed to set up sleepiness duration");
-            
-            let (tx,rx) = tokio::sync::watch::channel(AllServiceConnections::new());
-            
-            create_schedule(config.controller.refresh_interval)
-                .await
-                .start()
-                .await?;
+
+            let (tx, rx) = tokio::sync::watch::channel(ArcAllServiceConnections::new(
+                AllServiceConnections::new(),
+            ));
+
+            let mut groups: Vec<crate::core::scheduler::group::Group> =
+                config.groups.into_iter().map(|g| g.into()).collect();
+
+            let mut set: tokio::task::JoinSet<()> = tokio::task::JoinSet::new();
+
+            groups.into_iter().for_each(|mut group| {
+                let f = async move { group.run(rx.clone()).await };
+                set.spawn(f);
+            });
+
+            let output = set.join_all().await;
+
+            // create_schedule(config.controller.refresh_interval)
+            //     .await
+            //     .start()
+            //     .await?;
+
             server::start(config.server.port).await?;
         }
         Commands::Msg(e) => msg::process(e, config).await?,

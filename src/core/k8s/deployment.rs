@@ -15,7 +15,7 @@ use crate::core::{
             ANNOTATION_REPLICAS_KEY, KUBESLEEPER_ANNOTATION_PREFIX, KUBESLLEPER_APP_NAME,
         },
         identifier::Identifier,
-        resource_name::{ResourceName, error::ResourceNameError}
+        resource_name::{ResourceName, error::ResourceNameError},
     },
     state::state_kind::StateKind,
 };
