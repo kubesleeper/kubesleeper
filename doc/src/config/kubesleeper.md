@@ -4,51 +4,53 @@ Main configuration of kubesleeper should be set in a `./kubesleeper.yaml` file.
 
 See [CLI parameters](/guide/cli#config-path) to set a specific path.
 
-## Resources management
 
-### Groups
-A group should be defined with a name, deploys and services
+
+## Groups
+A Group is the fundamental unit of management in Kubesleeper.
+It maps network activity (Services) to resource scaling (Deployments).
 
 ```yaml
 groups:
   <group name>:
     
     services:
-      - <list of services>
+      - <namespace>/<service_name>
+      - <namespace>/*
     deployments:
-      - <list of deployments>
+      - <namespace>/<deployment_name>
+      - <namespace>/*
 ```
 
-The customisation off how kubesleeper manage your resources is defined with Groups (`.groups`).
+The **state** of a group dictates the scale of all associated resources.
+- **Asleep**: When **ALL** group's services report no activity for a defined period, the group sleeps meaning that associated deployments and services are set to sleep state too.
+- **Awake**: As soon as **AT LEAST ONE** group's service receives activity, the group wakes up meaning that associated deployments and services are set to awake state too.
+    
+### services
+Services are monitored to determine if the group should stay awake.
+- Specific: namespace/service_name
+- Wildcard: namespace/* (Includes all services within the namespace).
 
-#### Group State
-The state of a group determis all the resources (services and deployments) states. The same service canno't be monitored by multiple groups.
+> [!WARNING]
+> Exclusivity: A same service cannot be monitored by multiple groups.
 
-#### `groups.services`
-The `services` list contains all the services that are monitored to determine the group's state :
-- if **ALL** the services listed don't receive activitys for enough time, the group will be set `Asleep`
-- if **AT LEAST ONE** service receive activity the group will be set `Awake`
+### deployments
 
-Services are identified with :
-- `<namespace>/<service name>` : a specific service
-- `<namespace>/*` : meaning "all the services of the namespace <namespace>"
+The deployments list defines which resources Kubesleeper will scale up or down based on the group's state.
+- Specific: namespace/deployment_name
+- Wildcard: namespace/* (Includes all deployments within the namespace).
 
-#### `groups.deployments`
-The `deplyments` list all the deployments that are part of the group. The same deployment canno't be monitored by multiple groups.
-
-Deployments are identified with :
-- `<namespace>/<deployment name>` : a specific deployment
-- `<namespace>/*` : meaning "all the deployments of the namespace <namespace>"
+> [!WARNING]
+> Exclusivity: A same deployment cannot be monitored by multiple groups.
 
 
 
-## System configuration
 
-### Server
+## Server
 
 The Kubesleeper server manages two main functions: serving the waiting page to users and fetching incoming network traffic.
 
-#### Port
+### Port
 The port of the kubesleeper server.
 
 ```yaml
@@ -56,11 +58,14 @@ server:
     port: 8000
 ```
 
-### Controller
+
+
+
+## Controller
 
 The Kubesleeper controller manages the lifecycle of applications.
 
-#### _Sleepiness_ duration
+### _Sleepiness_ duration
 Inactivity duration (in seconds) before entering [_Asleep_ state](/guide/how_it_works.html#step-3-asleep-state---scaling-down). 
 > [!NOTE]
 > See _[How it works](/guide/how_it_works.html#how-it-works)_ to have better understanding of _Sleepiness_.
@@ -70,7 +75,7 @@ controller:
     sleepiness_duration: 15
 ```
 
-#### Refresh interval
+### Refresh interval
 The time interval (in seconds) between two checks of traffic activity.
 
 ```yaml

@@ -15,38 +15,38 @@ use crate::core::{
             ANNOTATION_REPLICAS_KEY, KUBESLEEPER_ANNOTATION_PREFIX, KUBESLLEPER_APP_NAME,
         },
         identifier::Identifier,
-        resource_name::{ResourceName, error::ResourceNameError},
-        service::KsServiceInteractError,
+        resource_name::{ResourceName, error::ResourceNameError}
     },
     state::state_kind::StateKind,
 };
-
-
 
 #[derive(Debug, thiserror::Error)]
 pub enum KsDeploymentParsingError {
     #[error(transparent)]
     KubeError(#[from] kube::Error),
 
-    #[error("Missing 'name'")]
+    #[error("missing 'name'")]
     MissingNameError,
-    #[error("Invalid 'name' : {0}")]
+
+    #[error("invalid 'name': {0}")]
     InvalidNameError(ResourceNameError),
 
-    #[error("Deployment {0} : Missing '.spec.replicas'")]
+    #[error("deployment {0}: missing '.spec.replicas'")]
     MissingReplicasError(Identifier),
 
-    #[error("Missing 'namespace'")]
+    #[error("missing 'namespace'")]
     MissingNamespaceError,
-    #[error("Invalid 'namespace' : {0}")]
+
+    #[error("invalid 'namespace': {0}")]
     InvalidNamespaceError(ResourceNameError),
 
-    #[error("Deployment {0} : Missing '{prefix}{key}' annotation", prefix = KUBESLEEPER_ANNOTATION_PREFIX, key = ANNOTATION_REPLICAS_KEY)]
+    #[error("deployment {0}: missing '{prefix}{key}' annotation", prefix = KUBESLEEPER_ANNOTATION_PREFIX, key = ANNOTATION_REPLICAS_KEY)]
     MissingReplicasAnnotationError(Identifier),
-    #[error("Deployment: {0} : Invalid '{prefix}{key}' annotation : {1}", prefix = KUBESLEEPER_ANNOTATION_PREFIX, key = ANNOTATION_REPLICAS_KEY)]
+
+    #[error("deployment {0}: invalid '{prefix}{key}' annotation: {1}", prefix = KUBESLEEPER_ANNOTATION_PREFIX, key = ANNOTATION_REPLICAS_KEY)]
     InvalidReplicasAnnotationError(Identifier, ParseIntError),
 
-    #[error("Deployment {0} : Missing 'status'")]
+    #[error("deployment {0}: missing 'status'")]
     MissingStatusError(Identifier),
 }
 
@@ -55,28 +55,28 @@ pub enum KsDeploymentFetchingError {
     #[error(transparent)]
     KubeError(#[from] kube::Error),
 
-    #[error("Deployment {0} not found")]
+    #[error("deployment {0} not found")]
     DeploymentNotFoundError(Identifier),
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum KsDeploymentInteractError {
-    #[error("Failed to set Deployment {0} Asleep : {1}")]
+    #[error("failed to set deployment {0} asleep: {1}")]
     DeploymentSleepingError(Identifier, KsDeploymentParsingError),
 
-    #[error("Failed to set Deployment {0} Awake : {1}")]
+    #[error("failed to set deployment {0} awake: {1}")]
     DeploymentWakingError(Identifier, KsDeploymentParsingError),
 
-    #[error("Failed to get Deployment {0} state: {1}")]
+    #[error("failed to get deployment {0} state: {1}")]
     DeploymentFetchingStateError(Identifier, KsDeploymentParsingError),
 
-    #[error("Failed to patch Deployment {0}: {1}")]
+    #[error("failed to patch deployment {0}: {1}")]
     DeploymentPatchingError(Identifier, KsDeploymentParsingError),
 
-    #[error("Failed waiting Deployment {0} to waking up: {1}")]
+    #[error("failed waiting for deployment {0} to wake up: {1}")]
     DeploymentWaitingWakeupError(Identifier, KsDeploymentParsingError),
 
-    #[error("Maximum waiting time for Deployment {0} to waking up exceeded")]
+    #[error("maximum waiting time for deployment {0} to wake up exceeded")]
     MaxWaitingWakeTimeError(Identifier),
 }
 
@@ -197,22 +197,26 @@ impl KsDeployment for Deployment {
         Ok(self
             .spec
             .as_ref()
-            .ok_or(KsDeploymentParsingError::MissingReplicasError(self.ks_id()?))?
+            .ok_or(KsDeploymentParsingError::MissingReplicasError(
+                self.ks_id()?,
+            ))?
             .replicas
-            .ok_or(KsDeploymentParsingError::MissingReplicasError(self.ks_id()?))?)
+            .ok_or(KsDeploymentParsingError::MissingReplicasError(
+                self.ks_id()?,
+            ))?)
     }
 
     fn ks_get_target_replicas(&self) -> Result<i32, KsDeploymentParsingError> {
         let id = self.ks_id()?;
-        
+
         let raw_annotations = self.metadata.annotations.as_ref();
         let annotations = Annotations::from(raw_annotations.unwrap_or(&BTreeMap::default()));
         annotations
             .get(ANNOTATION_REPLICAS_KEY)
             .map(|raw_target_replicas| {
-                raw_target_replicas
-                    .parse::<i32>()
-                    .map_err(|err| KsDeploymentParsingError::InvalidReplicasAnnotationError(id.clone(), err))
+                raw_target_replicas.parse::<i32>().map_err(|err| {
+                    KsDeploymentParsingError::InvalidReplicasAnnotationError(id.clone(), err)
+                })
             })
             .transpose()?
             .ok_or(KsDeploymentParsingError::MissingReplicasAnnotationError(id))

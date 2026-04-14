@@ -30,10 +30,12 @@ pub enum KubesleeperError {
 }
 
 pub async fn check_kubesleeper() -> Result<(), KubesleeperError> {
-    if let Ok(external_mod) = env::var("KS_EXTERNAL_MOD") && external_mod == "true" {
+    if let Ok(external_mod) = env::var("KS_EXTERNAL_MOD")
+        && external_mod == "true"
+    {
         return Ok(());
     }
-    
+
     // Get all kubesleeper candidates
     let kubesleeper_field_identifier = format!("metadata.name={KUBESLLEPER_APP_NAME}");
 

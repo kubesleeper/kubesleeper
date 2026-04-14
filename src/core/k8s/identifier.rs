@@ -15,10 +15,13 @@ pub mod error {
     #[derive(Debug, thiserror::Error)]
     pub enum IdentifierError {
         #[error("Invalid format: '{field_name}' do not match namespace/name: {error}")]
-        IdentifierParsing {
+        IdentifierParsingError {
             field_name: String,
             error: ResourceNameError,
         },
+        
+        #[error("Invalid format: namespace couldn't be '*', found '{0}'")]
+        WildCardInNamesapceError(String),
     }
 }
 
@@ -35,23 +38,27 @@ impl TryFrom<String> for Identifier {
     fn try_from(value: String) -> Result<Self, Self::Error> {
         if let Some((namespace, name)) = value.split_once("/") {
             trace!("'{value}' parsed: '{namespace}' as namespace and '{name}' as name");
-            Ok(Identifier {
-                namespace: namespace.to_string().try_into().map_err(|e| {
-                    Self::Error::IdentifierParsing {
-                        field_name: namespace.to_string(),
-                        error: e,
-                    }
-                })?,
-                name: name
-                    .to_string()
-                    .try_into()
-                    .map_err(|e| Self::Error::IdentifierParsing {
-                        field_name: namespace.to_string(),
-                        error: e,
-                    })?,
-            })
+            let namespace : ResourceName = namespace.to_string().try_into().map_err(|e| {
+                Self::Error::IdentifierParsingError {
+                    field_name: value.to_string(),
+                    error: e,
+                }
+            })?;
+            if namespace.is_star() {
+                return Err(Self::Error::WildCardInNamesapceError(value));
+            }
+            
+            let name = name
+                .to_string()
+                .try_into()
+                .map_err(|e| Self::Error::IdentifierParsingError {
+                    field_name: value.to_string(),
+                    error: e,
+                })?;
+            
+            Ok(Identifier {namespace,name})
         } else {
-            Err(Self::Error::IdentifierParsing {
+            Err(Self::Error::IdentifierParsingError {
                 field_name: value.to_string(),
                 error: ResourceNameError::InvalidName("".to_string()),
             })

@@ -1,6 +1,7 @@
 extern crate rocket;
 mod core;
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process;
 
@@ -10,6 +11,8 @@ use tokio_cron_scheduler::JobSchedulerError;
 
 use crate::core::config;
 
+use crate::core::ingress::{AllServiceConnections, Connections};
+use crate::core::k8s::identifier::Identifier;
 use crate::core::k8s::kubesleeper::{KubesleeperError, check_kubesleeper};
 use crate::core::state::state::SLEEPINESS_DURATION;
 use crate::core::state::state_kind::StateKind;
@@ -132,6 +135,9 @@ async fn process() -> Result<(), Error> {
             SLEEPINESS_DURATION
                 .set(config.controller.sleepiness_duration)
                 .expect("Failed to set up sleepiness duration");
+            
+            let (tx,rx) = tokio::sync::watch::channel(AllServiceConnections::new());
+            
             create_schedule(config.controller.refresh_interval)
                 .await
                 .start()

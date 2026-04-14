@@ -2,6 +2,7 @@ pub(crate) mod annotations;
 pub mod deployment;
 pub mod identifier;
 pub mod kubesleeper;
+pub mod pod;
 pub mod resource_name;
 pub mod service;
 

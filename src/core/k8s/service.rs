@@ -49,7 +49,7 @@ pub enum KsServiceParsingError {
     #[error("Service {0} : Missing '{prefix}{key}' annotation", prefix = KUBESLEEPER_ANNOTATION_PREFIX, key = ANNOTATION_SELECTOR_KEY)]
     MissingSelectorAnnotationError(Identifier),
     #[error("Service {0} : Invalid '{prefix}{key}' : {0}", prefix = KUBESLEEPER_ANNOTATION_PREFIX, key = ANNOTATION_SELECTOR_KEY)]
-    InvalidSelectorAnnotationError(Identifier,serde_json::Error),
+    InvalidSelectorAnnotationError(Identifier, serde_json::Error),
 
     // PORTS
     #[error("Service {0} : Missing '.spec.ports'")]
@@ -57,7 +57,7 @@ pub enum KsServiceParsingError {
     #[error("Service {0} : Missing '{prefix}{key}'", prefix = KUBESLEEPER_ANNOTATION_PREFIX, key = ANNOTATION_PORTS_KEY)]
     MissingPortsAnnotationError(Identifier),
     #[error("Service {0} : Invalid '{prefix}{key}' : {0}", prefix = KUBESLEEPER_ANNOTATION_PREFIX, key = ANNOTATION_PORTS_KEY)]
-    InvalidPortsAnnotationError(Identifier,serde_json::Error),
+    InvalidPortsAnnotationError(Identifier, serde_json::Error),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -155,10 +155,13 @@ impl KsService for Service {
         Ok(annotations
             .get(ANNOTATION_SELECTOR_KEY)
             .map(|raw_store_selector| {
-                serde_json::from_str(raw_store_selector)
-                    .map_err(|e| KsServiceParsingError::InvalidSelectorAnnotationError(id.clone(),e))
+                serde_json::from_str(raw_store_selector).map_err(|e| {
+                    KsServiceParsingError::InvalidSelectorAnnotationError(id.clone(), e)
+                })
             })
-            .unwrap_or(Err(KsServiceParsingError::MissingSelectorAnnotationError(id)))?)
+            .unwrap_or(Err(KsServiceParsingError::MissingSelectorAnnotationError(
+                id,
+            )))?)
     }
 
     fn ks_get_target_ports(&self) -> Result<Vec<ServicePort>, KsServiceParsingError> {
@@ -169,7 +172,7 @@ impl KsService for Service {
             .get(ANNOTATION_PORTS_KEY)
             .map(|raw_store_selector| {
                 serde_json::from_str(raw_store_selector)
-                    .map_err(|e| KsServiceParsingError::InvalidPortsAnnotationError(id.clone(),e))
+                    .map_err(|e| KsServiceParsingError::InvalidPortsAnnotationError(id.clone(), e))
             })
             .unwrap_or(Err(KsServiceParsingError::MissingPortsAnnotationError(id)))?)
     }
@@ -255,7 +258,8 @@ impl KsService for Service {
             &target_ports,
             &target_selector,
             &target_selector,
-        ).await?;
+        )
+        .await?;
         Ok(())
     }
 
@@ -289,7 +293,8 @@ impl KsService for Service {
             &self
                 .ks_get_selector()
                 .map_err(|e| KsServiceInteractError::ServiceWakingError(id.clone(), e))?,
-        ).await?;
+        )
+        .await?;
         Ok(())
     }
 

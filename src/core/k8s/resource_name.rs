@@ -30,11 +30,11 @@ impl TryFrom<String> for ResourceName {
     fn try_from(value: String) -> Result<Self, Self::Error> {
         static RE: OnceLock<Regex> = OnceLock::new();
         let re = RE.get_or_init(|| Regex::new(r"^[a-z]([a-z0-9\-.]{0,61}[a-z])?$").unwrap());
-        
+
         if value == "*" {
-            return Ok(ResourceName(value))
+            return Ok(ResourceName(value));
         };
-        
+
         if re.is_match(&value) {
             Ok(ResourceName(value))
         } else {
@@ -60,4 +60,3 @@ impl From<ResourceName> for String {
         val.0.to_string()
     }
 }
-

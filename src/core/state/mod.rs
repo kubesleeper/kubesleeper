@@ -1,5 +1,6 @@
 use crate::core::k8s::{
-    deployment::{KsDeploymentFetchingError, KsDeploymentInteractError}, service::{KsServiceFetchingError, KsServiceInteractError},
+    deployment::{KsDeploymentFetchingError, KsDeploymentInteractError},
+    service::{KsServiceFetchingError, KsServiceInteractError},
 };
 
 pub mod notification;
@@ -16,13 +17,13 @@ pub enum StateError {
 
     #[error(transparent)]
     KsDeploymentInteractError(#[from] KsDeploymentInteractError),
-    
+
     #[error(transparent)]
     KsServiceInteractError(#[from] KsServiceInteractError),
-    
+
     #[error(transparent)]
     KsDeploymentFetchingError(#[from] KsDeploymentFetchingError),
-    
+
     #[error(transparent)]
     KsServiceFetchingError(#[from] KsServiceFetchingError),
 

@@ -41,7 +41,6 @@ where
     }
 }
 
-
 #[derive(Serialize)]
 struct ServiceStatus {
     id: Identifier,
@@ -71,8 +70,6 @@ where
         _ => s.serialize_str("unknown"),
     }
 }
-
-
 
 #[derive(Debug, thiserror::Error)]
 pub enum StatusError {
@@ -106,8 +103,8 @@ pub enum StatusError {
 
 pub async fn status() -> Result<(), StatusError> {
     let deploys = Deployment::get_all().await?;
-    debug!("All ({}) deployment fetched",deploys.len());
-    
+    debug!("All ({}) deployment fetched", deploys.len());
+
     let mut deploys_status = Vec::new();
     for deploy in deploys {
         let state = match deploy.ks_get_state()? {
@@ -122,11 +119,11 @@ pub async fn status() -> Result<(), StatusError> {
                 }
             }
         };
-        
+
         deploys_status.push(DeployStatus {
             id: deploy.ks_id()?,
             state,
-            target_replicas: match deploy.ks_get_target_replicas(){
+            target_replicas: match deploy.ks_get_target_replicas() {
                 Ok(i) => Some(i),
                 Err(KsDeploymentParsingError::MissingReplicasAnnotationError(_)) => None,
                 Err(e) => return Err(e.into()),

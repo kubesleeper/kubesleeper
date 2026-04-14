@@ -1,35 +1,30 @@
-use crate::core::ingress::traefik::Traefik;
+use crate::core::ingress::AllServiceConnections;
 use crate::core::k8s::deployment::KsDeployment;
+use crate::core::k8s::identifier::Identifier;
 use crate::core::k8s::service::KsService;
 
-use crate::core::{
-    ingress::IngressType,
-    state::{
-        StateError,
-        notification::{Notification, NotificationKind},
-        state_kind::StateKind,
-    },
+use crate::core::scheduler::metric::RCAllServiceConnections;
+use crate::core::state::{
+    StateError,
+    notification::{Notification, NotificationKind},
+    state_kind::StateKind,
 };
 
 use k8s_openapi::api::apps::v1::Deployment;
 use k8s_openapi::api::core::v1::Service;
 use lazy_static::lazy_static;
-use std::num::NonZeroU32;
 use std::{
-    collections::HashMap,
     sync::Mutex,
     time::{Duration, Instant},
 };
-use tokio_cron_scheduler::{Job, JobScheduler};
-use tracing::{debug, info, instrument};
-use uuid::Uuid;
+
+use tracing::{debug, info};
 
 // - - - - - - - - - - - - -
+
 lazy_static! {
     pub static ref STATE: Mutex<State> = Mutex::new(State::default());
 }
-
-//pub const ANNOTATION_STORE_STATE_KEY: &str = "store.state";
 
 pub static SLEEPINESS_DURATION: std::sync::OnceLock<Duration> = std::sync::OnceLock::new();
 
@@ -37,30 +32,31 @@ pub static SLEEPINESS_DURATION: std::sync::OnceLock<Duration> = std::sync::OnceL
 pub struct State {
     pub kind: StateKind,
     pub since: Notification,
-    pub metrics: HashMap<String, HashMap<String, u64>>,
+    pub metrics: RCAllServiceConnections,
 }
 
 impl State {
     // TODO: review ingress suppression behavior ?
 
     fn create_notification_from_metrics(
+        service_targets: Vec<Identifier>,
         // HashMap<ServiceId, HashMap<Ingress Pod Uid, nb of connections received>>
-        metrics_data: &HashMap<String, HashMap<String, u64>>,
+        metrics_data: &AllServiceConnections,
     ) -> Result<Notification, StateError> {
         let state = STATE
             .lock()
             .map_err(|e| StateError::LockError(format!("{e:?}")))?;
 
-        for (service_id, metric) in metrics_data {
+        for (service_id, connections) in metrics_data.iter().filter(|(id,_)| service_targets.contains(id)){
             if let Some(stored_metric) = state.metrics.get(service_id) {
                 // Service already exists in the state,
                 // looking for update : is one of ingress pods has proceed at least 1 connection ?
-                for (ingress_pod_uid, total_connection) in metric {
-                    let stored_total_connection = stored_metric.get(ingress_pod_uid);
+                for (ingress_pod_id, total_connection) in connections {
+                    let stored_total_connection = stored_metric.get(ingress_pod_id);
                     if stored_total_connection.is_none() {
-                        // the ingress pod uid is not in the state, so its a new ingress pod,
+                        // the ingress pod id is not in the state, so its a new ingress pod,
                         // to be registerd is must has received at least 1 connection, so there was activity
-                        debug!("Ingress pod with uid '{ingress_pod_uid}' is new > Activity ");
+                        debug!("Ingress pod with id '{ingress_pod_id}' is new > Activity ");
                         return Ok(Notification::new(NotificationKind::Activity));
                     }
 
@@ -68,7 +64,7 @@ impl State {
                         stored_total_connection.map_or(0, |stored| stored - total_connection);
                     if nb_new_connection > 0 {
                         debug!(
-                            "Ingress pod with uid '{ingress_pod_uid}' has proceed {nb_new_connection} new connection > Activity "
+                            "Ingress pod with uid '{ingress_pod_id}' has proceed {nb_new_connection} new connection > Activity "
                         );
                         return Ok(Notification::new(NotificationKind::Activity));
                     }
@@ -156,60 +152,18 @@ impl State {
         Ok(())
     }
 
-    pub async fn update_from_metrics(
-        new_metrics: HashMap<String, HashMap<String, u64>>,
-    ) -> Result<(), StateError> {
+    pub async fn update_from_metrics(&mut self, service_name: Vec<Identifier>, new_metrics: RCAllServiceConnections) -> Result<(), StateError> {
         debug!("Updating state from metrics");
         // Update notification
-        State::update_from_notification(State::create_notification_from_metrics(&new_metrics)?)
+        State::update_from_notification(State::create_notification_from_metrics(service_name, &new_metrics)?)
             .await?;
 
         // Update metrics
-        STATE
-            .lock()
-            .map_err(|e| StateError::LockError(format!("{e:?}")))?
-            .metrics = new_metrics;
+        self.metrics = new_metrics;
         Ok(())
     }
 }
 
-#[instrument(
-    name = "schedule"
-    level = "info"
-    skip(uuid)
-    fields(uuid = %uuid)
-)]
-async fn process(uuid: Uuid) {
-    let metrics = Traefik::get_metrics().await;
-
-    State::update_from_metrics(metrics.map_err(|e| e.to_string()).unwrap())
-        .await
-        .map_err(|e| e.to_string())
-        .unwrap();
-}
-
-pub async fn create_schedule(refresh_interval: NonZeroU32) -> JobScheduler {
-    let sched = JobScheduler::new().await.unwrap();
-
-    sched
-        .add(
-            Job::new_async(format!("1/{refresh_interval} * * * * *"), |uuid, mut l| {
-                Box::pin(async move {
-                    {
-                        process(Uuid::new_v4()).await
-                    }
-
-                    // Query the next execution time for this job
-                    let _next_tick = l.next_tick_for_job(uuid).await;
-                })
-            })
-            .unwrap(),
-        )
-        .await
-        .unwrap();
-    info!("Running scheduler");
-    sched
-}
 impl Default for State {
     fn default() -> Self {
         // TODO: choose first awake or asleep from config

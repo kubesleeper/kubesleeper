@@ -39,7 +39,8 @@
   --sidebar-bg: hsl(0, 0%, 7%);
   --sidebar-fg: #b9b9b9;
   --theme-hover: hsl(0, 0%, 7%);
-  --sidebar-active: #5282f2;
+  --sidebar-active: #809AFF;
+  --sidebar-header-border-color: #424242;
   --links: #5282f2;
   --icons: #777;
   --icons-hover: #ffffff;
@@ -52,6 +53,9 @@
   
 }
 
+.on-this-page{
+    border-inline-start: 2px solid var(--sidebar-header-border-color);
+}
 
 #searchbar{
     outline: none;
@@ -63,10 +67,10 @@
 
 code, .hljs{
     color: var(--inline-code-color);
-    padding: 0.1em 0.3em;
     background: var(--quote-bg);
     border: 1px solid var(--quote-border);
     border-radius: 5px;
+    padding: 0.5em 0.8em;
 }
 
 #navy, #rust, #ayu, #mdbook-theme-navy, #mdbook-theme-rust, #mdbook-theme-ayu{
@@ -77,16 +81,27 @@ hr{
     margin: 10rem 0;
     border-color: var(--quote-border);
 }
+.blockquote-tag{
+    border-inline-start-width: 2px;
+}
 
+h1,h2{
+    a{
+        color: var(--sidebar-active) !important;
+    }
+}
+main > h1:first-of-type{
+    margin-block-start: 8rem;
+}
 h1{
     margin-block-start: 12rem;
 }
 
 h2 {
-    margin-block-start: 7rem;
+    margin-block-start: 12rem;
 }
 
 h3{
-    margin-block-start: 3rem;
+    margin-block-start: 6rem;
 }
 
