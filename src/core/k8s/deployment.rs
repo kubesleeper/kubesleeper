@@ -87,7 +87,7 @@ pub trait KsDeployment {
     async fn ks_get_ready_replicas_count(&self) -> Result<i32, KsDeploymentParsingError>;
 
     async fn get_all() -> Result<Vec<Deployment>, KsDeploymentFetchingError>;
-    async fn get(id: Identifier) -> Result<Deployment, KsDeploymentFetchingError>;
+    async fn get(id: &Identifier) -> Result<Deployment, KsDeploymentFetchingError>;
 
     async fn ks_patch(
         &self,
@@ -273,7 +273,7 @@ impl KsDeployment for Deployment {
         Ok(api.list(&lp).await?.into_iter().collect())
     }
 
-    async fn get(id: Identifier) -> Result<Deployment, KsDeploymentFetchingError> {
+    async fn get(id: &Identifier) -> Result<Deployment, KsDeploymentFetchingError> {
         let lp = ListParams::default().match_any().fields(&format!(
             "metadata.name!={},metadata.namespace!=kube-system,metadata.namespace=={},metadata.name=={}",
             KUBESLLEPER_APP_NAME,

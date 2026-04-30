@@ -138,24 +138,20 @@ async fn process() -> Result<(), Error> {
                 AllServiceConnections::new(),
             ));
 
-            let mut groups: Vec<crate::core::scheduler::group::Group> =
+            let groups: Vec<crate::core::scheduler::group::Group> =
                 config.groups.into_iter().map(|g| g.into()).collect();
 
             let mut set: tokio::task::JoinSet<()> = tokio::task::JoinSet::new();
 
             groups.into_iter().for_each(|mut group| {
+                let rx = rx.clone();
                 let f = async move { group.run(rx.clone()).await };
                 set.spawn(f);
             });
 
             let output = set.join_all().await;
 
-            // create_schedule(config.controller.refresh_interval)
-            //     .await
-            //     .start()
-            //     .await?;
-
-            server::start(config.server.port).await?;
+            // server::start(config.server.port).await?;
         }
         Commands::Msg(e) => msg::process(e, config).await?,
         Commands::Status => {

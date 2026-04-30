@@ -85,74 +85,73 @@ impl State {
     }
 
     pub async fn update_from_notification(notification: Notification) -> Result<(), StateError> {
-        let mut action: Option<StateKind> = None;
 
-        {
-            // explaination of the error if remove this scoped block
-            debug!("Update state from Notification");
-            let mut state = STATE
-                .lock()
-                .map_err(|e| StateError::LockError(format!("{e:?}")))?;
+        // explaination of the error if remove this scoped block
+        debug!("Update state from Notification");
+        let mut state = STATE
+            .lock()
+            .map_err(|e| StateError::LockError(format!("{e:?}")))?;
 
-            match (&state.since.kind, &notification.kind) {
-                (NotificationKind::Activity, NotificationKind::Activity) => {
-                    info!("State do not change > {:?}", &state.since.kind);
-                }
-                (NotificationKind::Activity, NotificationKind::NoActivity) => {
-                    info!("State change > {:?}", &state.since.kind);
-                    state.since = notification; // new state kind since this new notification
-                }
-                (NotificationKind::NoActivity, NotificationKind::NoActivity) => {
-                    let sleepiness_duration = notification.timestamp - state.since.timestamp;
-                    let max_sleepiness_duration = match SLEEPINESS_DURATION.get() {
-                        Some(s) => *s,
-                        None => panic!("SLEEPINESS_DURATION should be set a this step"),
-                    };
-                    if sleepiness_duration >= max_sleepiness_duration
-                        && state.kind != StateKind::Asleep
-                    {
-                        // The application has been in sleepiness mode for too long; it must set asleep.
-                        debug!(
-                            "Sleepiness duration exceeded: maximum sleepiness duration is {max_sleepiness_duration:?}s, but the state was in this condition {sleepiness_duration:?}s."
-                        );
-                        info!("State change > Asleep");
-                        state.kind = StateKind::Asleep;
-                        action = Some(StateKind::Asleep);
-                    }
-                    info!("State do not change > {:?}", &state.since.kind);
-                }
-                (NotificationKind::NoActivity, NotificationKind::Activity) => {
-                    // The application has received a connection but is asleep, must be waked up.
-                    state.since = notification;
-                    state.kind = StateKind::Awake;
-                    info!("State change to Awake ");
-                    action = Some(StateKind::Awake);
-                }
-            };
-        }
-
-        match action {
-            Some(StateKind::Asleep) => {
-                debug!("Making all Deploy 'Asleep'");
-                for deploy in Deployment::get_all().await?.iter_mut() {
-                    deploy.ks_sleep().await?;
-                }
-                for service in Service::get_all().await?.iter_mut() {
-                    service.ks_sleep().await?;
-                }
+        match (&state.since.kind, &notification.kind) {
+            (NotificationKind::Activity, NotificationKind::Activity) => {
+                info!("State do not change > {:?}", &state.since.kind);
             }
-            Some(StateKind::Awake) => {
-                debug!("Making all Deploy 'Awake'");
-                for deploy in Deployment::get_all().await?.iter_mut() {
-                    deploy.ks_wake().await?;
-                }
-                for service in Service::get_all().await?.iter_mut() {
-                    service.ks_wake().await?;
-                }
+            (NotificationKind::Activity, NotificationKind::NoActivity) => {
+                info!("State change > {:?}", &state.since.kind);
+                state.since = notification; // new state kind since this new notification
             }
-            None => {}
+            (NotificationKind::NoActivity, NotificationKind::NoActivity) => {
+                let sleepiness_duration = notification.timestamp - state.since.timestamp;
+                let max_sleepiness_duration = match SLEEPINESS_DURATION.get() {
+                    Some(s) => *s,
+                    None => panic!("SLEEPINESS_DURATION should be set a this step"),
+                };
+                if sleepiness_duration >= max_sleepiness_duration
+                    && state.kind != StateKind::Asleep
+                {
+                    // The application has been in sleepiness mode for too long; it must set asleep.
+                    debug!(
+                        "Sleepiness duration exceeded: maximum sleepiness duration is {max_sleepiness_duration:?}s, but the state was in this condition {sleepiness_duration:?}s."
+                    );
+                    info!("State change > Asleep");
+                    state.kind = StateKind::Asleep;
+                    // action = Some(StateKind::Asleep);
+                }
+                info!("State do not change > {:?}", &state.since.kind);
+            }
+            (NotificationKind::NoActivity, NotificationKind::Activity) => {
+                // The application has received a connection but is asleep, must be waked up.
+                state.since = notification;
+                state.kind = StateKind::Awake;
+                info!("State change to Awake ");
+                // action = Some(StateKind::Awake);
+            }
         };
         Ok(())
+
+        // match action {
+        //     Some(StateKind::Asleep) => {
+        //         debug!("Making all Deployments 'Asleep'");
+        //         for deploy in Deployment::get_all().await?.iter_mut() {
+        //             deploy.ks_sleep().await?;
+        //         }
+        //         debug!("Making all Services 'Asleep'");
+        //         for service in Service::get_all().await?.iter_mut() {
+        //             service.ks_sleep().await?;
+        //         }
+        //     }
+        //     Some(StateKind::Awake) => {
+        //         debug!("Making all Deployments 'Awake'");
+        //         for deploy in Deployment::get_all().await?.iter_mut() {
+        //             deploy.ks_wake().await?;
+        //         }
+        //         debug!("Making all Services 'Awake'");
+        //         for service in Service::get_all().await?.iter_mut() {
+        //             service.ks_wake().await?;
+        //         }
+        //     }
+        //     None => {}
+        // };
     }
 
     pub async fn update_from_metrics(
