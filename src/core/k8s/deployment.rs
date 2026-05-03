@@ -85,6 +85,7 @@ pub trait KsDeployment {
     fn ks_get_replicas(&self) -> Result<i32, KsDeploymentParsingError>;
     fn ks_get_target_replicas(&self) -> Result<i32, KsDeploymentParsingError>;
     async fn ks_get_ready_replicas_count(&self) -> Result<i32, KsDeploymentParsingError>;
+    async fn ks_rediness_state(&self) -> Result<(i32, i32), KsDeploymentParsingError>;
 
     async fn get_all() -> Result<Vec<Deployment>, KsDeploymentFetchingError>;
     async fn get(id: &Identifier) -> Result<Deployment, KsDeploymentFetchingError>;
@@ -95,7 +96,7 @@ pub trait KsDeployment {
         target_replicas: i32,
     ) -> Result<(), KsDeploymentInteractError>;
     fn ks_get_state(&self) -> Result<StateKind, KsDeploymentInteractError>;
-    async fn wait_ready(&self) -> Result<(), KsDeploymentInteractError>;
+    // async fn wait_ready(&self) -> Result<(), KsDeploymentInteractError>;
     async fn ks_wake(&self) -> Result<(), KsDeploymentInteractError>;
     async fn ks_sleep(&self) -> Result<(), KsDeploymentInteractError>;
 }
@@ -233,32 +234,45 @@ impl KsDeployment for Deployment {
     }
 
     /// TODO: remove this, should be better to loop from the parent call no the Deployment itself
-    async fn wait_ready(&self) -> Result<(), KsDeploymentInteractError> {
-        let id = self.ks_id().map_err(|e| {
-            KsDeploymentInteractError::DeploymentFetchingStateError(Identifier::new_unknow(), e)
-        })?;
-        let replicas = self
-            .ks_get_replicas()
-            .map_err(|e| KsDeploymentInteractError::DeploymentWaitingWakeupError(id.clone(), e))?;
-        for i in 0_u32..1000 {
-            let current_ready_replicas = self.ks_get_ready_replicas_count().await.map_err(|e| {
-                KsDeploymentInteractError::DeploymentWaitingWakeupError(id.clone(), e)
-            })?;
-            if replicas - current_ready_replicas == 0 {
-                info!("Deploy {} just woke up.", id);
-                return Ok(());
-            }
+    // async fn wait_ready(&self) -> Result<(), KsDeploymentInteractError> {
+    //     let id = self.ks_id().map_err(|e| {
+    //         KsDeploymentInteractError::DeploymentFetchingStateError(Identifier::new_unknow(), e)
+    //     })?;
+    //     let replicas = self
+    //         .ks_get_replicas()
+    //         .map_err(|e| KsDeploymentInteractError::DeploymentWaitingWakeupError(id.clone(), e))?;
+    //     for i in 0_u32..1000 {
+    //         let current_ready_replicas = self.ks_get_ready_replicas_count().await.map_err(|e| {
+    //             KsDeploymentInteractError::DeploymentWaitingWakeupError(id.clone(), e)
+    //         })?;
+    //         if replicas - current_ready_replicas == 0 {
+    //             info!("Deploy {} just woke up.", id);
+    //             return Ok(());
+    //         }
 
-            info!(
-                "Deploy {} is waking up. Waiting for replicas to be ready : {}/{}",
-                id, current_ready_replicas, replicas
-            );
+    //         info!(
+    //             "Deploy {} is waking up. Waiting for replicas to be ready : {}/{}",
+    //             id, current_ready_replicas, replicas
+    //         );
 
-            let duration = 100 * 2_u64.pow([i, 7].into_iter().min().expect("Couldn't be empty"));
-            tokio::time::sleep(Duration::from_millis(duration)).await;
-        }
+    //         let duration = 100 * 2_u64.pow([i, 7].into_iter().min().expect("Couldn't be empty"));
+    //         tokio::time::sleep(Duration::from_millis(duration)).await;
+    //     }
 
-        Err(KsDeploymentInteractError::MaxWaitingWakeTimeError(id))
+    //     Err(KsDeploymentInteractError::MaxWaitingWakeTimeError(id))
+    // }
+
+    async fn ks_rediness_state(&self) -> Result<(i32, i32), KsDeploymentParsingError> {
+        let current_ready_pod_number = self
+            .status
+            .as_ref()
+            .ok_or(KsDeploymentParsingError::MissingStatusError(self.ks_id()?))?
+            .ready_replicas
+            .unwrap_or_default();
+
+        let target = self.ks_get_target_replicas()?;
+
+        Ok((current_ready_pod_number, target))
     }
 
     async fn get_all() -> Result<Vec<Deployment>, KsDeploymentFetchingError> {
@@ -291,6 +305,8 @@ impl KsDeployment for Deployment {
             .collect::<Vec<Deployment>>()
             .first()
             .map(|d| d.clone())
-            .ok_or(KsDeploymentFetchingError::DeploymentNotFoundError(id))?)
+            .ok_or(KsDeploymentFetchingError::DeploymentNotFoundError(
+                id.clone(),
+            ))?)
     }
 }

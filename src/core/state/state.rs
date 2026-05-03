@@ -85,7 +85,6 @@ impl State {
     }
 
     pub async fn update_from_notification(notification: Notification) -> Result<(), StateError> {
-
         // explaination of the error if remove this scoped block
         debug!("Update state from Notification");
         let mut state = STATE
@@ -106,8 +105,7 @@ impl State {
                     Some(s) => *s,
                     None => panic!("SLEEPINESS_DURATION should be set a this step"),
                 };
-                if sleepiness_duration >= max_sleepiness_duration
-                    && state.kind != StateKind::Asleep
+                if sleepiness_duration >= max_sleepiness_duration && state.kind != StateKind::Asleep
                 {
                     // The application has been in sleepiness mode for too long; it must set asleep.
                     debug!(
