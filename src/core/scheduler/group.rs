@@ -1,15 +1,17 @@
+use std::fmt::Display;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use crate::core::k8s::deployment::KsDeployment;
+use crate::core::k8s::deployment::{self, KsDeployment, KsDeploymentFetchingError};
 use crate::core::scheduler::metric::ArcAllServiceConnections;
 use crate::core::state::state_kind::StateKind;
-use crate::core::{
-    k8s::identifier::Identifier, state::state::State,
-};
+use crate::core::{k8s::identifier::Identifier, state::state::State};
 use k8s_openapi::api::apps::v1::Deployment;
 use log::{debug, error};
+use thiserror::Error;
+use tokio::io::Join;
 use tokio::sync::watch::Receiver;
+use tokio::task::JoinSet;
 
 #[derive(Debug)]
 pub struct Group {
@@ -19,105 +21,131 @@ pub struct Group {
     pub state: State,
 }
 
+async fn get_deployment(id: Identifier) -> Result<Deployment, KsDeploymentFetchingError> {
+    Deployment::get(&id).await
+}
+
+#[derive(Error, Debug)]
+enum CustomError<E: Display> {
+    #[error("{0}")]
+    FnError(E),
+    #[error("A thread panicked: {0}")]
+    TokioError(tokio::task::JoinError),
+}
+
+//isation
+async fn run_parallel<T, O, E, F, Fut>(
+    elements: impl IntoIterator<Item = T>,
+    task: F,
+) -> Result<Vec<O>, CustomError<E>>
+where
+    F: Fn(T) -> Fut,
+    Fut: std::future::Future<Output = Result<O, E>> + 'static + Send,
+    E: Send + Display + 'static,
+    O: Send + 'static,
+{
+    let mut set = JoinSet::new();
+    for element in elements.into_iter() {
+        set.spawn(task(element));
+    }
+
+    let mut results = Vec::new();
+    while let Some(result) = set.join_next().await {
+        match result {
+            Ok(Ok(ok)) => {
+                results.push(ok);
+            }
+            Err(e) => {
+                return Err(CustomError::TokioError(e));
+            }
+            Ok(Err(e)) => {
+                return Err(CustomError::FnError(e));
+            }
+        }
+    }
+    Ok(results)
+}
+
 impl Group {
     pub(crate) async fn run(&mut self, mut rx: Receiver<ArcAllServiceConnections>) {
         'main: while rx.changed().await.is_ok() {
             let new_metrics = rx.borrow().clone();
-            let legacy_state_kind = self.state.kind; 
+            let legacy_state_kind = self.state.kind;
             self.state
                 .update_from_metrics(&self.services, new_metrics)
                 .await
-                .unwrap_or_else(|e| error!("Failed to manage state of group '{}' : {e}",self.name));
-            
-            if self.state.kind == legacy_state_kind{
+                .unwrap_or_else(|e| {
+                    error!("Failed to manage state of group '{}' : {e}", self.name)
+                });
+
+            if self.state.kind == legacy_state_kind {
                 continue;
             }
-            
-            // --- SERVICE ---
-            for service_id in self.services.iter() {
-                
-                let service = match Deployment::get(&service_id).await {
-                    Err(e) => {
-                        error!("Failed to manage resources of group '{}' : Failed to get Service '{}' : {e}", self.name, service_id);
-                        continue;
-                    },
-                    Ok(d) => d
-                };
-                
-                if let Err(e) = match self.state.kind{
-                    StateKind::Asleep => service.ks_sleep().await,
-                    StateKind::Awake => service.ks_wake().await,
-                }{
-                    error!("Failed to manage resources of group '{}' : Failed to set Service '{}' {} : {e}", self.name, service_id, self.state.kind);
-                    continue;
-                }
-            }
-            
-            
+
             // --- DEPLOYMENT ---
-            let mut deployments : Vec<Deployment> = Vec::new();
-            for deploy_id in self.deployments.iter() {
-                let deploy = match Deployment::get(&deploy_id).await {
-                    Err(e) => {
-                        error!("Failed to manage resources of group '{}' : Failed to get Deployment '{}' : {e}", self.name, deploy_id);
-                        continue 'main;
-                    },
-                    Ok(d) => d
-                };
-                deployments.push(deploy);
-            }
+            let deployments: Vec<Deployment> = match run_parallel(self.deployments.clone(), get_deployment).await {
+                Ok(deployment) => {
+                    deployment
+                } 
+                Err(e) => {
+                    error!("{}", e);
+                    continue 'main;
+                }
+            };
+
             
-            for deployments in deployments.iter() {        
-                if let Err(e) = match self.state.kind{
+            for deployments in deployments.iter() {
+                if let Err(e) = match self.state.kind {
                     StateKind::Asleep => deployments.ks_sleep().await,
                     StateKind::Awake => deployments.ks_wake().await,
-                }{
-                    error!("Failed to manage resources of group '{}' : Failed to set Deployment '{}' {} : {e}", self.name, deployments.ks_id().unwrap_or(Identifier::new_unknow()), self.state.kind);
+                } {
+                    error!(
+                        "Failed to manage resources of group '{}' : Failed to set Deployment '{}' {} : {e}",
+                        self.name,
+                        deployments.ks_id().unwrap_or(Identifier::new_unknow()),
+                        self.state.kind
+                    );
                     continue 'main;
                 }
             }
-            
-            if self.state.kind == StateKind::Asleep{
+
+            if self.state.kind == StateKind::Asleep {
                 continue 'main;
             }
-            
- 
+
             let time = Instant::now();
             loop {
-                let mut is_all_deployment_ready = true; 
+                let mut is_all_deployment_ready = true;
                 for deployments in deployments.iter() {
-                    let (current,target) = match deployments.ks_rediness_state().await {
+                    let (current, target) = match deployments.ks_rediness_state().await {
                         Ok(r) => r,
                         Err(e) => {
-                            error!("Failed to manage resources of group '{}' : Failed to get rediness data of Deployment '{}' : {e}", self.name, deployments.ks_id().unwrap_or(Identifier::new_unknow()));
+                            error!(
+                                "Failed to manage resources of group '{}' : Failed to get rediness data of Deployment '{}' : {e}",
+                                self.name,
+                                deployments.ks_id().unwrap_or(Identifier::new_unknow())
+                            );
                             continue 'main;
                         }
                     };
-                    
+
                     if current != target {
-                        debug!("Deployment '{}' not ready : {current}/{target} pod ready",deployments.ks_id().unwrap_or(Identifier::new_unknow()));
+                        debug!(
+                            "Deployment '{}' not ready : {current}/{target} pod ready",
+                            deployments.ks_id().unwrap_or(Identifier::new_unknow())
+                        );
                         is_all_deployment_ready = false;
                     }
                 }
                 if is_all_deployment_ready {
                     continue 'main;
                 }
-                
-                let max_waiting_time = (15*60) as f32;
+
                 let elapsed = time.elapsed().as_secs() as f32;
-                if elapsed >= max_waiting_time {
-                    // ?? what to do in this case ? try to sleep the group ? force the state to be asleep ?
-                    // because the Deployment will be seen as 'awake' so re-awake them will juste be skiped
-                    // so if nothing done, manual intervention is needed
-                    error!("Group '{}' failed to be ready after {}m{}s after being set awake", 
-                        self.name,
-                        (max_waiting_time as i32 / 60),
-                        (max_waiting_time as i32 % 60)
-                    );
-                    continue 'main;
-                }
-                let wait = ((4.5 * elapsed + 7.5)/(15 as f32)) as u64; // ?? linear interpolation bettwen 'first waiting time is 0.5s' and 'at 15min of waiting, wait 5s'  
-                debug!("Group '{}' not ready after {}m{}s : waiting {}s",
+
+                let wait = ((4.5 * elapsed + 7.5) / (15 as f32)) as u64; // Backoff: linear from 0.5s to 5s over the first 15 minutes of waiting.
+                debug!(
+                    "Group '{}' not ready after {}m{}s : waiting {}s",
                     self.name,
                     (elapsed as i32 / 60),
                     (elapsed as i32 % 60),
@@ -125,7 +153,31 @@ impl Group {
                 );
                 sleep(Duration::from_secs(wait));
             }
+        }
 
+        // --- SERVICE ---
+        for service_id in self.services.iter() {
+            let service = match Deployment::get(&service_id).await {
+                Err(e) => {
+                    error!(
+                        "Failed to manage resources of group '{}' : Failed to get Service '{}' : {e}",
+                        self.name, service_id
+                    );
+                    continue;
+                }
+                Ok(d) => d,
+            };
+
+            if let Err(e) = match self.state.kind {
+                StateKind::Asleep => service.ks_sleep().await,
+                StateKind::Awake => service.ks_wake().await,
+            } {
+                error!(
+                    "Failed to manage resources of group '{}' : Failed to set Service '{}' {} : {e}",
+                    self.name, service_id, self.state.kind
+                );
+                continue;
+            }
         }
     }
 }
@@ -146,4 +198,3 @@ impl From<crate::core::config::groups::Group> for Group {
 //     global data = get_metrics()
 //     channel_casting(data)
 // )
-
