@@ -12,7 +12,7 @@ use crate::core::config;
 use crate::core::ingress::AllServiceConnections;
 use crate::core::k8s::kubesleeper::{KubesleeperError, check_kubesleeper};
 use crate::core::scheduler::group::Group;
-use crate::core::scheduler::metric::ArcAllServiceConnections;
+use crate::core::scheduler::metric::{ArcAllServiceConnections, send_metric};
 use crate::core::state::state::SLEEPINESS_DURATION;
 use crate::core::state::state_kind::StateKind;
 use crate::core::{
@@ -142,6 +142,8 @@ async fn process() -> Result<(), Error> {
                 config.groups.into_iter().map(|g| g.into()).collect();
 
             let mut set: tokio::task::JoinSet<()> = tokio::task::JoinSet::new();
+
+            set.spawn(send_metric(tx, config.controller.refresh_interval));
 
             groups.into_iter().for_each(|mut group| {
                 let rx = rx.clone();

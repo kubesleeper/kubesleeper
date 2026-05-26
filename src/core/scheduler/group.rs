@@ -9,7 +9,6 @@ use crate::core::{k8s::identifier::Identifier, state::state::State};
 use k8s_openapi::api::apps::v1::Deployment;
 use log::{debug, error};
 use thiserror::Error;
-use tokio::io::Join;
 use tokio::sync::watch::Receiver;
 use tokio::task::JoinSet;
 
@@ -40,7 +39,7 @@ async fn run_parallel<T, O, E, F, Fut>(
 ) -> Result<Vec<O>, CustomError<E>>
 where
     F: Fn(T) -> Fut,
-    Fut: std::future::Future<Output = Result<O, E>> + 'static + Send,
+    Fut: std::future::Future<Output = Result<O, E>> + Send + 'static,
     E: Send + Display + 'static,
     O: Send + 'static,
 {
@@ -83,17 +82,15 @@ impl Group {
             }
 
             // --- DEPLOYMENT ---
-            let deployments: Vec<Deployment> = match run_parallel(self.deployments.clone(), get_deployment).await {
-                Ok(deployment) => {
-                    deployment
-                } 
-                Err(e) => {
-                    error!("{}", e);
-                    continue 'main;
-                }
-            };
+            let deployments: Vec<Deployment> =
+                match run_parallel(self.deployments.clone(), get_deployment).await {
+                    Ok(deployment) => deployment,
+                    Err(e) => {
+                        error!("{}", e);
+                        continue 'main;
+                    }
+                };
 
-            
             for deployments in deployments.iter() {
                 if let Err(e) = match self.state.kind {
                     StateKind::Asleep => deployments.ks_sleep().await,

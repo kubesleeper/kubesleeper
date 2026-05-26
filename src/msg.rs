@@ -116,12 +116,12 @@ pub async fn process(msg: Message, config: Config) -> Result<(), MsgError> {
             state,
         } => match resource_type {
             ResourceType::Svc => {
-                let svc = Service::get(resource_id.clone()).await?;
+                let svc = Service::get(&resource_id.clone()).await?;
                 set_one_service_asleep(&svc, state).await?;
                 Ok(())
             }
             ResourceType::Deploy => {
-                let deploy = Deployment::get(resource_id.clone()).await?;
+                let deploy = Deployment::get(&resource_id.clone()).await?;
                 set_one_deployment_asleep(&deploy, state).await?;
                 Ok(())
             }

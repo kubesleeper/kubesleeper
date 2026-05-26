@@ -95,7 +95,7 @@ pub trait KsService {
     fn ks_get_target_ports(&self) -> Result<Vec<ServicePort>, KsServiceParsingError>;
 
     async fn get_all() -> Result<Vec<Service>, KsServiceFetchingError>;
-    async fn get(id: Identifier) -> Result<Service, KsServiceFetchingError>;
+    async fn get(id: &Identifier) -> Result<Service, KsServiceFetchingError>;
 
     fn ks_get_state(&self) -> Result<StateKind, KsServiceInteractError>;
     async fn ks_wake(&self) -> Result<(), KsServiceInteractError>;
@@ -310,7 +310,7 @@ impl KsService for Service {
         Ok(api.list(&lp).await?.into_iter().collect())
     }
 
-    async fn get(id: Identifier) -> Result<Service, KsServiceFetchingError> {
+    async fn get(id: &Identifier) -> Result<Service, KsServiceFetchingError> {
         let lp = ListParams::default().match_any().fields(&format!(
             "metadata.name!={},metadata.namespace!=kube-system,metadata.namespace=={},metadata.name=={}",
             KUBESLLEPER_APP_NAME,
@@ -328,6 +328,6 @@ impl KsService for Service {
             .collect::<Vec<Service>>()
             .first()
             .map(|d| d.clone())
-            .ok_or(KsServiceFetchingError::ServiceNotFoundError(id))?)
+            .ok_or(KsServiceFetchingError::ServiceNotFoundError(id.clone()))?)
     }
 }
