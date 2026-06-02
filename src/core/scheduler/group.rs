@@ -11,6 +11,7 @@ use log::{debug, error};
 use thiserror::Error;
 use tokio::sync::watch::Receiver;
 use tokio::task::JoinSet;
+use tracing::{Level, span};
 
 #[derive(Debug)]
 pub struct Group {
@@ -67,6 +68,8 @@ where
 
 impl Group {
     pub(crate) async fn run(&mut self, mut rx: Receiver<ArcAllServiceConnections>) {
+        let span = span!(Level::DEBUG, "group", name = self.name);
+        let _enter = span.enter();
         'main: while rx.changed().await.is_ok() {
             let new_metrics = rx.borrow().clone();
             let legacy_state_kind = self.state.kind;

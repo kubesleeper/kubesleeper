@@ -22,10 +22,6 @@ use tracing::{debug, info};
 
 // - - - - - - - - - - - - -
 
-lazy_static! {
-    pub static ref STATE: Mutex<State> = Mutex::new(State::default());
-}
-
 pub static SLEEPINESS_DURATION: std::sync::OnceLock<Duration> = std::sync::OnceLock::new();
 
 #[derive(Debug)]
@@ -39,19 +35,16 @@ impl State {
     // TODO: review ingress suppression behavior ?
 
     fn create_notification_from_metrics(
+        &self,
         service_targets: &Vec<Identifier>,
         // HashMap<ServiceId, HashMap<Ingress Pod Uid, nb of connections received>>
         metrics_data: &AllServiceConnections,
     ) -> Result<Notification, StateError> {
-        let state = STATE
-            .lock()
-            .map_err(|e| StateError::LockError(format!("{e:?}")))?;
-
         for (service_id, connections) in metrics_data
             .iter()
             .filter(|(id, _)| service_targets.contains(id))
         {
-            if let Some(stored_metric) = state.metrics.get(service_id) {
+            if let Some(stored_metric) = self.metrics.get(service_id) {
                 // Service already exists in the state,
                 // looking for update : is one of ingress pods has proceed at least 1 connection ?
                 for (ingress_pod_id, total_connection) in connections {
@@ -84,43 +77,42 @@ impl State {
         Ok(Notification::new(NotificationKind::NoActivity))
     }
 
-    pub async fn update_from_notification(notification: Notification) -> Result<(), StateError> {
+    pub async fn update_from_notification(
+        &mut self,
+        notification: Notification,
+    ) -> Result<(), StateError> {
         // explaination of the error if remove this scoped block
         debug!("Update state from Notification");
-        let mut state = STATE
-            .lock()
-            .map_err(|e| StateError::LockError(format!("{e:?}")))?;
-
-        match (&state.since.kind, &notification.kind) {
+        match (&self.since.kind, &notification.kind) {
             (NotificationKind::Activity, NotificationKind::Activity) => {
-                info!("State do not change > {:?}", &state.since.kind);
+                info!("State do not change > {:?}", self.since.kind);
             }
             (NotificationKind::Activity, NotificationKind::NoActivity) => {
-                info!("State change > {:?}", &state.since.kind);
-                state.since = notification; // new state kind since this new notification
+                info!("State change > {:?}", self.since.kind);
+                self.since = notification; // new state kind since this new notification
             }
             (NotificationKind::NoActivity, NotificationKind::NoActivity) => {
-                let sleepiness_duration = notification.timestamp - state.since.timestamp;
+                let sleepiness_duration = notification.timestamp - self.since.timestamp;
                 let max_sleepiness_duration = match SLEEPINESS_DURATION.get() {
                     Some(s) => *s,
                     None => panic!("SLEEPINESS_DURATION should be set a this step"),
                 };
-                if sleepiness_duration >= max_sleepiness_duration && state.kind != StateKind::Asleep
+                if sleepiness_duration >= max_sleepiness_duration && self.kind != StateKind::Asleep
                 {
                     // The application has been in sleepiness mode for too long; it must set asleep.
                     debug!(
                         "Sleepiness duration exceeded: maximum sleepiness duration is {max_sleepiness_duration:?}s, but the state was in this condition {sleepiness_duration:?}s."
                     );
                     info!("State change > Asleep");
-                    state.kind = StateKind::Asleep;
+                    self.kind = StateKind::Asleep;
                     // action = Some(StateKind::Asleep);
                 }
-                info!("State do not change > {:?}", &state.since.kind);
+                info!("State do not change > {:?}", &self.since.kind);
             }
             (NotificationKind::NoActivity, NotificationKind::Activity) => {
                 // The application has received a connection but is asleep, must be waked up.
-                state.since = notification;
-                state.kind = StateKind::Awake;
+                self.since = notification;
+                self.kind = StateKind::Awake;
                 info!("State change to Awake ");
                 // action = Some(StateKind::Awake);
             }
@@ -158,11 +150,11 @@ impl State {
         new_metrics: ArcAllServiceConnections,
     ) -> Result<(), StateError> {
         debug!("Updating state from metrics");
+
         // Update notification
-        State::update_from_notification(State::create_notification_from_metrics(
-            service_name,
-            &new_metrics,
-        )?)
+        self.update_from_notification(
+            self.create_notification_from_metrics(service_name, &new_metrics)?
+        )
         .await?;
 
         // Update metrics

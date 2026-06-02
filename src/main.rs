@@ -65,33 +65,6 @@ pub enum ResourceKind {
     Service,
 }
 
-#[derive(Subcommand)]
-enum Manual {
-    /// Set a specific Deployment or Service to the desired state
-    SetDeploy {
-        /// the kube resournce id (like {namespace}/{name}) to target,
-        /// namespace 'default' will be used if id is simply {name}
-        #[arg(value_name("NAMESPACE/NAME"))]
-        resource_id: String,
-
-        /// The target state to which the resource will be set
-        state: StateKind,
-    },
-
-    /// Set a specific Deployment or Service to the desired state
-    SetService {
-        /// the kube resournce id like {namespace}/{name},
-        /// namespace 'default' will be used if id is simply {name}
-        #[arg(value_name("NAMESPACE/NAME"))]
-        resource_id: String,
-
-        /// The target state to which the resource will be set
-        state: StateKind,
-    },
-    /// Start web server alone (without kube resource management)
-    StartServer,
-}
-
 #[derive(Debug, thiserror::Error)]
 enum Error {
     #[error(transparent)]
@@ -150,10 +123,11 @@ async fn process() -> Result<(), Error> {
                 let f = async move { group.run(rx.clone()).await };
                 set.spawn(f);
             });
+            
+            let server = async move { server::start(config.server.port).await; };
+            set.spawn(server);
 
-            let output = set.join_all().await;
-
-            // server::start(config.server.port).await?;
+            let _output = set.join_all().await;
         }
         Commands::Msg(e) => msg::process(e, config).await?,
         Commands::Status => {
