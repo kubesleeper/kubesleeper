@@ -5,8 +5,8 @@ on:
     
 jobs:
   
-  version:
-    uses: ./.github/workflows/_version.yaml
+  # version:
+  #   uses: ./.github/workflows/_version.yaml
 
   test:
     runs-on: ubuntu-latest
