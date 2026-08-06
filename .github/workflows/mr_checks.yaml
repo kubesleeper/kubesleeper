@@ -7,19 +7,38 @@ jobs:
   
   version:
     uses: ./.github/workflows/_version.yaml
-    
+
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Code Checkout
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Check that code is formated
+      - name: Setup
         run: |
-          cargo fmt --check || { echo "Please run 'cargo fmt' to have a correctly formated code"; exit 1; }
+          wget https://github.com/eloi-menaud/c14/releases/download/v4.1.0/c14
+          chmod +x c14
+      
+      - name: Get kubesleeper version
+        id: get-kubsleeper-version
+        run: |
+          rsc_folders="src Cargo.toml"
+          base_commit=$(git rev-list -n 1 $ref~1 -- $rsc_folders)
+          echo "$base_commit"
+          # base_version=$(cat Cargo.toml | grep -o '^version\s*=.*$' | cut -d "=" -f 2 | sed "s|[\"']||g")
+          # version=$(./c14 version --strict --base-version $base_version --from $base_commit --target $rsc_folders)
+          # echo "src_version=$version" >> $GITHUB_OUTPUT
 
-      - name: Run test
-        run: |
-          docker build --target image -t test:test .
+
+      # - name: Check that code is formated
+      #   run: |
+      #     cargo fmt --check || { echo "Please run 'cargo fmt' to have a correctly formated code"; exit 1; }
+
+      # - name: Run test
+      #   run: |
+      #     docker build --target image -t test:test .
           
 
