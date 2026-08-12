@@ -15,8 +15,8 @@
         <link rel="icon" href="../favicon-abf440c6.svg">
         <link rel="shortcut icon" href="../favicon-c5da6aeb.png">
         <link rel="stylesheet" href="../css/variables-8adf115d.css">
-        <link rel="stylesheet" href="../css/general-2459343d.css">
-        <link rel="stylesheet" href="../css/chrome-ae938929.css">
+        <link rel="stylesheet" href="../css/general-e96d0476.css">
+        <link rel="stylesheet" href="../css/chrome-d279d366.css">
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
@@ -35,10 +35,10 @@
             const path_to_root = "../";
             const default_light_theme = "light";
             const default_dark_theme = "coal";
-            window.path_to_searchindex_js = "../searchindex-04df2c40.js";
+            window.path_to_searchindex_js = "../searchindex-379fe691.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc-d0d55bd7.js"></script>
+        <script src="../toc-9555a55f.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -177,8 +177,12 @@
                         <h1 id="install"><a class="header" href="#install">Install</a></h1>
 <p>Kubesleeper is essentially a deploy that manages your resources via the Kubernetes API.</p>
 <p>To install it, you need to deploy a Kubesleeper deployment. This can be done using Helm (recommended) or manually.</p>
+<hr>
 <h2 id="helm-install"><a class="header" href="#helm-install">Helm Install</a></h2>
-<p><em>Work in progress… Coming soon</em></p>
+<pre><code class="language-shell"># Download and install the desired version by changing VERSION variable
+VERSION=0.1.0; helm install kubesleeper https://github.com/kubesleeper/kubesleeper/releases/download/$VERSION/kubesleeper-$VERSION.tgz
+</code></pre>
+<hr>
 <h2 id="manual-install"><a class="header" href="#manual-install">Manual install</a></h2>
 <blockquote class="blockquote-tag blockquote-tag-note">
 <p class="blockquote-tag-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
@@ -273,11 +277,11 @@ spec:
 
         <script src="../elasticlunr-ef4e11c1.min.js"></script>
         <script src="../mark-09e88c2c.min.js"></script>
-        <script src="../searcher-c2a407aa.js"></script>
+        <script src="../searcher-09f2665d.js"></script>
 
         <script src="../clipboard-1626706a.min.js"></script>
         <script src="../highlight-abc7f01d.js"></script>
-        <script src="../book-a0b12cfe.js"></script>
+        <script src="../book-609e4cb8.js"></script>
 
         <!-- Custom JS scripts -->
 
