@@ -1,59 +1,51 @@
-name: Versioning and Releasing
+name: Releasing
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'helm/kubesleeper/**'
+      - 'static/**'
+      - 'src/**'
+      - 'Dockerfile'
+      - 'Cargo.toml'
+
 
 jobs:
   version:
+      runs-on: ubuntu-latest
+      outputs:
+        docker_version: ${{ steps.version.outputs.docker_version }}
+        helm_version: ${{ steps.version.outputs.helm_version }}
+      steps:
+        - name: Code Checkout
+          uses: actions/checkout@v4
+  
+        - name: Check if Git tag already exists
+          id: version
+          run: |
+            BIN_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+            HELM_VERSION=$(grep '^version:' helm/kubesleeper/Chart.yaml | awk '{print $2}' | tr -d '"')
+            DOCKER_VERSION=$BIN_VERSION
+            
+            if git ls-remote --tags origin "refs/tags/${HELM_VERSION}" | grep -q "${HELM_VERSION}"; then
+              echo "Error: Tag '$HELM_VERSION' already exists"
+              exit 1
+            fi
+            echo "docker_version=$DOCKER_VERSION"   >> "$GITHUB_OUTPUT"
+            echo "helm_version=$HELM_VERSION" >> "$GITHUB_OUTPUT"
+          
+          
+  build-kubesleeper:
     runs-on: ubuntu-latest
-    
-    outputs:
-      version: ${{ steps.get_version.outputs.version }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup
-        run: |
-          wget https://github.com/eloi-menaud/c14/releases/download/v3.0.0/c14
-          chmod +x c14
-      
-      - name: Get version from c14
-        id: get_version
-        run: |
-          echo "get new version from last version tag"
-          sanitized_version=$(./c14 --strict --report | sed s/^v//)
-          cat c14-report.json
-          echo
-          if test "$sanitized_version" == "0.0.0"
-          then
-            echo "Version has not been changed, skipping"
-            sanitized_version=""
-          fi
-          echo "version=$sanitized_version" >> $GITHUB_OUTPUT
-
-
-  build:
     needs: version
-    runs-on: ubuntu-latest
-    if: ${{ needs.version.outputs.version != '' }} 
     steps:
       - name: Code Checkout
         uses: actions/checkout@v4
 
-      - name: Override cargo.toml version
-        run: |
-          version="${{ needs.version.outputs.version }}"
-          echo "Overriding Cargo.toml with version: $version"
-          sed -i "s/^version\s*=.*$/version = \"${version}\"/" Cargo.toml
-          git -c color.ui=always diff Cargo.toml
-
       - name: Build kubesleeper binary
+        id: build
         run: |
           docker build --target binary-export --output type=local,dest=./dist .
     
@@ -81,62 +73,67 @@ jobs:
           push: true
           tags: |
             ghcr.io/kubesleeper/kubesleeper:latest
-            ghcr.io/kubesleeper/kubesleeper:${{ needs.version.outputs.version }}
+            ghcr.io/kubesleeper/kubesleeper:${{ needs.version.outputs.docker_version }}
 
+
+  build-helm:
+    runs-on: ubuntu-latest
+    needs: version
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v4
+      
+      - name: Helm package
+        run: |
+            helm package helm/kubesleeper
+        
+      - name: Upload Artifact (helm chart)
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-products
+          path: |
+            helm/kubesleeper/Chart.yaml
+            kubesleeper-*.tgz
+          retention-days: 1
+          
+          
   release:
     needs:
-      - build
+      - build-kubesleeper
+      - build-helm
       - version
     runs-on: ubuntu-latest
-
-    if: ${{ needs.version.outputs.version != '' }}
-
     permissions:
-      contents: write # for 'git push' and 'action-gh-release'
+      contents: write # for 'action-gh-release'
 
     steps:
-      # The main branch is protected, it's not possible to push on it, we can only merge a MR
-      # But the version (in Cargo.toml) is automatically managed
-      # To allow Github Action to push, it's needed to creat a Github App (an empty one)
-      # with "content > Read & Write" access, and allowwing this app to push on main.
-      #
-      # It's first needed to create a Token from the Private Key
-      - name: Generate App Token
-        id: generate_token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ secrets.CI_APP_ID }}
-          private-key: ${{ secrets.CI_APP_PRIVATE_KEY }}
-          permission-contents: write
-
-     # Use Github App as git user
+      
       - name: Code Checkout
         uses: actions/checkout@v4
         with:
-            token: ${{ steps.generate_token.outputs.token }}
-
-      - name: Download artifacts
+            token: ${{ secrets.GITHUB_TOKEN }}
+        
+      - name: Download bin and image artifacts
         uses: actions/download-artifact@v4
         with:
           name: built-products
           path: .
-
-      - name: Pushing Cargo.toml with updated version
-        run: |
-          git -c color.ui=always diff Cargo.toml
-          git add Cargo.toml
-
-          git config user.name "kubesleeper ci bot"
-          git config user.email "kubesleeper-ci-bot@kubesleeper.com"
-
-          git commit -m "feat: auto ci versioning v${{ needs.version.outputs.version }} [skip ci]"
-          git push --force origin main
+          
+      - name: Download helm artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: helm-products
+          path: .
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ needs.version.outputs.version }}
-          name: Release v${{ needs.version.outputs.version }}
-          files: dist/kubesleeper
+          tag_name: ${{ needs.version.outputs.helm_version }}
+          name: Release ${{ needs.version.outputs.helm_version }}
+          files: |
+            dist/kubesleeper
+            kubesleeper-*.tgz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+

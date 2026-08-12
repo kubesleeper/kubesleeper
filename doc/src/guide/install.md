@@ -4,8 +4,16 @@ Kubesleeper is essentially a deploy that manages your resources via the Kubernet
 
 To install it, you need to deploy a Kubesleeper deployment. This can be done using Helm (recommended) or manually.
 
+---
+
 ## Helm Install
-_Work in progress… Coming soon_
+
+```shell
+# Download and install the desired version by changing VERSION variable
+VERSION=0.1.0; helm install kubesleeper https://github.com/kubesleeper/kubesleeper/releases/download/$VERSION/kubesleeper-$VERSION.tgz
+```
+
+---
 
 ## Manual install
 

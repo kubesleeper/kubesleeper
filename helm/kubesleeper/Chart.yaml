@@ -1,0 +1,9 @@
+apiVersion: v2
+name: kubesleeper
+version: "0.1.0"
+description: |
+  Kubesleeper is a "scale-to-zero" Kubernetes manager. 
+  It automatically reduces resource usage based on load, helping you cut infrastructure costs. 
+  Concretely, if an application is unused for some time, kubesleeper will automatically shut it down and restart it when a new user tries to access it.
+type: application
+appVersion: "0.1.0"
