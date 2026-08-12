@@ -1,14 +1,17 @@
-name: Checking code
+name: Checks before Merge
 
 on:
   pull_request:
-
+    
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Code Checkout
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Check that code is formated
         run: |
@@ -17,3 +20,33 @@ jobs:
       - name: Run test
         run: |
           docker build --target image -t test:test .
+
+  task-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: iukekini/pr-tasks-validator-action@v1.0.4
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      docker_version: ${{ steps.version.outputs.DOCKER_VERSION }}
+      release_version: ${{ steps.version.outputs.RELEASE_VERSION }}
+    steps:
+      - name: Code Checkout
+        uses: actions/checkout@v4
+
+      - name: Check if Git tag already exists
+        id: version
+        run: |
+          BIN_VERSION=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          HELM_VERSION=$(grep '^version:' helm/kubesleeper/Chart.yaml | awk '{print $2}' | tr -d '"')
+          RELEASE_VERSION=$BIN_VERSION-$HELM_VERSION
+
+          echo "release version : $RELEASE_VERSION"
+          
+          if git ls-remote --tags origin "refs/tags/${RELEASE_VERSION}" | grep -q "${RELEASE_VERSION}"; then
+            echo "Error: Tag '$RELEASE_VERSION' already exists"
+            exit 1
+          fi

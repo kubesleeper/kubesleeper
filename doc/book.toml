@@ -13,3 +13,4 @@ preferred-dark-theme = "coal"
 
 [output.html.print]
 enable = false  
+
