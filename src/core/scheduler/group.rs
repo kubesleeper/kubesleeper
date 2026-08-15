@@ -3,14 +3,17 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 use crate::core::k8s::deployment::{self, KsDeployment, KsDeploymentFetchingError};
+use crate::core::k8s::service::{KsService, KsServiceFetchingError};
 use crate::core::scheduler::metric::ArcAllServiceConnections;
 use crate::core::state::state_kind::StateKind;
 use crate::core::{k8s::identifier::Identifier, state::state::State};
+use ::futures::future::{join_all, try_join_all};
 use k8s_openapi::api::apps::v1::Deployment;
-use log::{debug, error};
+use k8s_openapi::api::core::v1::Service;
+use log::{debug, error, info, log};
 use thiserror::Error;
 use tokio::sync::watch::Receiver;
-use tokio::task::JoinSet;
+use tokio::task::{JoinSet, futures};
 use tracing::{Level, span};
 
 #[derive(Debug)]
@@ -24,6 +27,9 @@ pub struct Group {
 async fn get_deployment(id: Identifier) -> Result<Deployment, KsDeploymentFetchingError> {
     Deployment::get(&id).await
 }
+async fn get_service(id: Identifier) -> Result<Service, KsServiceFetchingError> {
+    Service::get(&id).await
+}
 
 #[derive(Error, Debug)]
 enum CustomError<E: Display> {
@@ -33,44 +39,17 @@ enum CustomError<E: Display> {
     TokioError(tokio::task::JoinError),
 }
 
-//isation
-async fn run_parallel<T, O, E, F, Fut>(
-    elements: impl IntoIterator<Item = T>,
-    task: F,
-) -> Result<Vec<O>, CustomError<E>>
-where
-    F: Fn(T) -> Fut,
-    Fut: std::future::Future<Output = Result<O, E>> + Send + 'static,
-    E: Send + Display + 'static,
-    O: Send + 'static,
-{
-    let mut set = JoinSet::new();
-    for element in elements.into_iter() {
-        set.spawn(task(element));
-    }
 
-    let mut results = Vec::new();
-    while let Some(result) = set.join_next().await {
-        match result {
-            Ok(Ok(ok)) => {
-                results.push(ok);
-            }
-            Err(e) => {
-                return Err(CustomError::TokioError(e));
-            }
-            Ok(Err(e)) => {
-                return Err(CustomError::FnError(e));
-            }
-        }
-    }
-    Ok(results)
-}
 
 impl Group {
     pub(crate) async fn run(&mut self, mut rx: Receiver<ArcAllServiceConnections>) {
         let span = span!(Level::DEBUG, "group", name = self.name);
         let _enter = span.enter();
+
+        // waiting for new metrics
         'main: while rx.changed().await.is_ok() {
+
+            // checking if state should be changed
             let new_metrics = rx.borrow().clone();
             let legacy_state_kind = self.state.kind;
             self.state
@@ -79,40 +58,41 @@ impl Group {
                 .unwrap_or_else(|e| {
                     error!("Failed to manage state of group '{}' : {e}", self.name)
                 });
-
             if self.state.kind == legacy_state_kind {
                 continue;
             }
 
-            // --- DEPLOYMENT ---
-            let deployments: Vec<Deployment> =
-                match run_parallel(self.deployments.clone(), get_deployment).await {
-                    Ok(deployment) => deployment,
-                    Err(e) => {
-                        error!("{}", e);
-                        continue 'main;
-                    }
-                };
+            // updating resources state
 
-            for deployments in deployments.iter() {
-                if let Err(e) = match self.state.kind {
-                    StateKind::Asleep => deployments.ks_sleep().await,
-                    StateKind::Awake => deployments.ks_wake().await,
-                } {
+            // get all deployments in parallel.
+            // if an error occures the error is displayed and skiped
+            let futures = self.deployments.clone().into_iter().map(|id| get_deployment(id));
+            let deployments: Vec<Deployment> = match try_join_all(futures).await {
+                Ok(deployments) => deployments,
+                Err(e) => {error!("{}", e); break 'main;}
+            };
+
+            // setting all deployments asleep/awake
+            let state_kind = self.state.kind;
+            let futures = deployments.iter().map(|deployment| async move {
+                let res = match state_kind {
+                    StateKind::Asleep => deployment.ks_sleep().await,
+                    StateKind::Awake => deployment.ks_wake().await,
+                };
+                (deployment, res)
+            });
+            for (deployment, res) in join_all(futures).await {
+                if let Err(e) = res {
                     error!(
                         "Failed to manage resources of group '{}' : Failed to set Deployment '{}' {} : {e}",
                         self.name,
-                        deployments.ks_id().unwrap_or(Identifier::new_unknow()),
-                        self.state.kind
+                        deployment.ks_id().unwrap_or(Identifier::new_unknow()),
+                        state_kind
                     );
-                    continue 'main;
                 }
             }
 
-            if self.state.kind == StateKind::Asleep {
-                continue 'main;
-            }
-
+            // waiting all deployment to be in the desired state
             let time = Instant::now();
             loop {
                 let mut is_all_deployment_ready = true;
@@ -125,20 +105,22 @@ impl Group {
                                 self.name,
                                 deployments.ks_id().unwrap_or(Identifier::new_unknow())
                             );
-                            continue 'main;
+                            (-1,-2)
                         }
                     };
 
                     if current != target {
                         debug!(
-                            "Deployment '{}' not ready : {current}/{target} pod ready",
-                            deployments.ks_id().unwrap_or(Identifier::new_unknow())
+                            "Deployment '{}' not ready : {}/{} pod ready",
+                            deployments.ks_id().unwrap_or(Identifier::new_unknow()),
+                            if current == -1 { "?".to_string() } else { target.to_string() },
+                            if target  == -2 { "?".to_string() } else { target.to_string() },
                         );
                         is_all_deployment_ready = false;
                     }
                 }
                 if is_all_deployment_ready {
-                    continue 'main;
+                    break
                 }
 
                 let elapsed = time.elapsed().as_secs() as f32;
@@ -153,34 +135,42 @@ impl Group {
                 );
                 sleep(Duration::from_secs(wait));
             }
-        }
 
-        // --- SERVICE ---
-        for service_id in self.services.iter() {
-            let service = match Deployment::get(&service_id).await {
-                Err(e) => {
-                    error!(
-                        "Failed to manage resources of group '{}' : Failed to get Service '{}' : {e}",
-                        self.name, service_id
-                    );
-                    continue;
-                }
-                Ok(d) => d,
+
+
+            // --- SERVICE ---
+    
+            // get all services in parallel.
+            // if an error occures the error is displayed and skiped
+            let futures = self.services.clone().into_iter().map(|id| get_service(id));
+            let services: Vec<Service> = match try_join_all(futures).await {
+                Ok(services) => services,
+                Err(e) => {error!("{}", e); break 'main;}
             };
-
-            if let Err(e) = match self.state.kind {
-                StateKind::Asleep => service.ks_sleep().await,
-                StateKind::Awake => service.ks_wake().await,
-            } {
-                error!(
-                    "Failed to manage resources of group '{}' : Failed to set Service '{}' {} : {e}",
-                    self.name, service_id, self.state.kind
-                );
-                continue;
+    
+            // setting all services asleep/awake
+            let state_kind = self.state.kind;
+            let futures = services.iter().map(|service| async move {
+                let res = match state_kind {
+                    StateKind::Asleep => service.ks_sleep().await,
+                    StateKind::Awake => service.ks_wake().await,
+                };
+                (service, res)
+            });
+            for (service, res) in join_all(futures).await {
+                if let Err(e) = res {
+                    error!(
+                        "Failed to manage resources of group '{}' : Failed to set Service '{}' {} : {e}",
+                        self.name,
+                        service.ks_id().unwrap_or(Identifier::new_unknow()),
+                        state_kind
+                    );
+                }
             }
         }
     }
 }
+
 
 impl From<crate::core::config::groups::Group> for Group {
     fn from(value: crate::core::config::groups::Group) -> Self {
@@ -193,8 +183,3 @@ impl From<crate::core::config::groups::Group> for Group {
     }
 }
 
-// job(
-//     wait 30s
-//     global data = get_metrics()
-//     channel_casting(data)
-// )
